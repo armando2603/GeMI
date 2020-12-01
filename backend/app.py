@@ -15,30 +15,6 @@ pred = Predictor()
 
 @app.route('/prova2', methods=['POST'])
 def hola():
-    # this data is for example can be delete
-    data = [
-        {
-            'field': 'Cell Line',
-            'value': 'None',
-            'color': 'red-1'
-        },
-        {
-            'field': 'Cell Type',
-            'value': 'Embryonic Stem Cell',
-            'color': 'green-3'
-        },
-        {
-            'field': 'Tissue Type',
-            'value': 'Embryo',
-            'color': 'green-1'
-        },
-        {
-            'field': 'Factor',
-            'value': 'TP53',
-            'color': 'red-5'
-        }
-    ]
-
     data = request.get_json()
     input_text = f'{data[0]["field"]}: {data[0]["values"][0]["text"]} - {data[1]["field"]}: {data[1]["values"][0]["text"]} - {data[2]["field"]}: {data[2]["values"][0]["text"]} = '
     pred.fields = [' Cell Line', ' Cell Type', ' Tissue Type',' Factor']

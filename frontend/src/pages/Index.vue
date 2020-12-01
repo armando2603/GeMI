@@ -17,7 +17,7 @@
             <q-btn round icon='search' color="primary" @click='searchData'/>
           </div>
           <div class='q-pl-md q-pt-sm'>
-            <q-btn round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
+            <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
           </div>
         </div>
         <q-card class="my-inputs">
@@ -37,31 +37,52 @@
           </q-card-section>
         </q-card>
       </div>
-      <q-card class="my-outputs">
-      <q-card-section>
-        <div class="text-h6 text-primary q-pl-md"> Output</div>
-        <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualizeLime(index)">
-          <q-field label-color="grey-10" stack-label outlined :bg-color='output.color' :label="output.field" >
-            <template v-slot:control>
-              <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
-            </template>
-          </q-field>
+      <div>
+        <div class="q-pa-md">
+          <q-btn-toggle
+            v-model="typeInterpreter"
+            class="toggle "
+            no-caps
+            rounded
+            unelevated
+            spread
+            toggle-color="primary"
+            color="white"
+            text-color="primary"
+            :options="[
+              {label: 'Lime', value: 'lime'},
+              {label: 'Attention', value: 'attention'}
+            ]"
+          />
         </div>
-        <q-dialog v-model="loadIcon" persistent transition-show="scale" transition-hide="scale">
-          <q-card style="width: 300px" class="text-primary">
+        <div class="q-pa-md">
+          <q-card class="my-outputs">
             <q-card-section>
-              <div class="text-h6">Loading</div>
+              <div class="text-h6 text-primary q-pl-md"> Output</div>
+              <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualizeLime(index)">
+                <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
+                  <template v-slot:control>
+                    <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
+                  </template>
+                </q-field>
+              </div>
+              <q-dialog v-model="loadIcon" persistent transition-show="scale" transition-hide="scale">
+                <q-card style="width: 300px" class="text-primary">
+                  <q-card-section>
+                    <div class="text-h6">Loading</div>
+                  </q-card-section>
+                  <q-card-section class="q-pt-none">
+                    The Lime interpreter is training, it can take a while, thank you for your patience :)
+                  </q-card-section>
+                  <div class='justify-evenly row q-pb-md'>
+                    <q-spinner-gears color="primary" size="50px"  />
+                  </div>
+                </q-card>
+              </q-dialog>
             </q-card-section>
-            <q-card-section class="q-pt-none">
-              The Lime interpreter is training, it can take a while, thank you for your patience :)
-            </q-card-section>
-            <div class='justify-evenly row q-pb-md'>
-              <q-spinner-gears color="primary" size="50px"  />
-            </div>
           </q-card>
-        </q-dialog>
-      </q-card-section>
-      </q-card>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -70,8 +91,8 @@
 .my-outputs
   width: 100%
   max-width: 200px
-  position: relative;
-  top: 85px;
+.toggle
+  border: 1px solid #027be3
 .input-id
   width: 40%
 .my-inputs
@@ -83,6 +104,8 @@ import json from '../assets/dataset.json'
 export default {
   data () {
     return {
+      typeInterpreter: 'lime',
+      disableGpt2button: true,
       loadGpt2: false,
       loadIcon: false,
       my_value: 'Submit',
@@ -114,11 +137,11 @@ export default {
   methods: {
     callModel () {
       if (!this.gpt2Computed) {
-        this.gpt2Computed = true
         this.loadGpt2 = true
         // http://10.79.23.5:5003 or http://localhost:5000/prova2
         this.$axios.post('http://localhost:5000/prova2', this.inputs_api).then((response) => {
           this.outputs = response.data
+          this.gpt2Computed = true
           this.loadGpt2 = false
         }).catch(error => (error.message))
       }
@@ -128,6 +151,7 @@ export default {
       this.gpt2Computed = false
       if ((this.id in this.dataset) === false) {
         this.isValid = false
+        this.disableGpt2button = true
         return
       }
       for (const x of Array(4).keys()) {
@@ -145,6 +169,7 @@ export default {
       this.inputs[1].values[0].text = this.dataset[this.id].description
       this.inputs[2].values[0].text = this.dataset[this.id].characteristics
       this.isValid = true
+      this.disableGpt2button = false
     },
     visualizeLime (index) {
       if (this.gpt2Computed) {
