@@ -139,7 +139,7 @@ export default {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
         // http://10.79.23.5:5003 or http://localhost:5000/prova2
-        this.$axios.post('http://localhost:5000/prova2', this.inputs_api).then((response) => {
+        this.$axios.post('http://10.79.23.5:5003/prova2', this.inputs_api).then((response) => {
           this.outputs = response.data
           this.gpt2Computed = true
           this.loadGpt2 = false
@@ -180,7 +180,7 @@ export default {
         } else {
           this.loadIcon = true
           this.limeComputed[index] = true
-          this.$axios.post('http://localhost:5000/prova', { inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field }).then((response) => {
+          this.$axios.post('http://10.79.23.5:5003/prova', { inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field }).then((response) => {
             this.limeResults[index][0] = response.data[0]
             this.limeResults[index][1] = response.data[1]
             this.limeResults[index][2] = response.data[2]
