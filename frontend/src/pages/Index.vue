@@ -41,7 +41,8 @@
         <div class="q-pa-md">
           <q-btn-toggle
             v-model="typeInterpreter"
-            class="toggle "
+            class="toggle"
+            @input="resetInputs"
             no-caps
             rounded
             unelevated
@@ -50,8 +51,9 @@
             color="white"
             text-color="primary"
             :options="[
-              {label: 'Lime', value: 'lime'},
-              {label: 'Attention', value: 'attention'}
+              {label: 'Attention', value: 'attention'},
+              {label: 'Lime', value: 'lime'}
+
             ]"
           />
         </div>
@@ -59,7 +61,7 @@
           <q-card class="my-outputs">
             <q-card-section>
               <div class="text-h6 text-primary q-pl-md"> Output</div>
-              <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualizeLime(index)">
+              <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
                 <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
                   <template v-slot:control>
                     <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
@@ -104,7 +106,7 @@ import json from '../assets/dataset.json'
 export default {
   data () {
     return {
-      typeInterpreter: 'lime',
+      typeInterpreter: 'attention',
       disableGpt2button: true,
       loadGpt2: false,
       loadIcon: false,
@@ -125,6 +127,7 @@ export default {
         { field: 'Characteristics', values: [{ text: '', color: 'bg-white' }] }
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
+      attentionResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
       outputs: [
         { field: 'Cell Line', value: '', color: 'grey-3' },
         { field: 'Cell Type', value: '', color: 'grey-3' },
@@ -140,9 +143,14 @@ export default {
         this.loadGpt2 = true
         // http://10.79.23.5:5003 or http://localhost:5000/prova2
         this.$axios.post('http://10.79.23.5:5003/prova2', this.inputs_api).then((response) => {
-          this.outputs = response.data
+          this.outputs = response.data.outputs
+          this.attentionResults = response.data.attentions
+          // for (const i of Array(3).keys()) {
+          //   this.inputs[i].values = response.data.attentions[1][i]
+          // }
           this.gpt2Computed = true
           this.loadGpt2 = false
+          this.disableGpt2button = true
         }).catch(error => (error.message))
       }
     },
@@ -171,26 +179,40 @@ export default {
       this.isValid = true
       this.disableGpt2button = false
     },
-    visualizeLime (index) {
+    visualize (index) {
       if (this.gpt2Computed) {
-        if (this.limeComputed[index]) {
-          this.inputs[0].values = this.limeResults[index][0]
-          this.inputs[1].values = this.limeResults[index][1]
-          this.inputs[2].values = this.limeResults[index][2]
-        } else {
-          this.loadIcon = true
-          this.limeComputed[index] = true
-          this.$axios.post('http://10.79.23.5:5003/prova', { inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field }).then((response) => {
-            this.limeResults[index][0] = response.data[0]
-            this.limeResults[index][1] = response.data[1]
-            this.limeResults[index][2] = response.data[2]
-            this.inputs[0].values = response.data[0]
-            this.inputs[1].values = response.data[1]
-            this.inputs[2].values = response.data[2]
-            this.loadIcon = false
-          }).catch(error => (error.message))
+        if (this.typeInterpreter === 'lime') {
+          if (this.limeComputed[index]) {
+            this.inputs[0].values = this.limeResults[index][0]
+            this.inputs[1].values = this.limeResults[index][1]
+            this.inputs[2].values = this.limeResults[index][2]
+          } else {
+            this.loadIcon = true
+            this.limeComputed[index] = true
+            this.$axios.post('http://10.79.23.5:5003/prova', {
+              inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field
+            }).then((response) => {
+              this.limeResults[index][0] = response.data[0]
+              this.limeResults[index][1] = response.data[1]
+              this.limeResults[index][2] = response.data[2]
+              this.inputs[0].values = response.data[0]
+              this.inputs[1].values = response.data[1]
+              this.inputs[2].values = response.data[2]
+              this.loadIcon = false
+            }).catch(error => (error.message))
+          }
+        }
+        if (this.typeInterpreter === 'attention') {
+          for (const i of Array(3).keys()) {
+            this.inputs[i].values = this.attentionResults[index][i]
+          }
         }
       }
+    },
+    resetInputs () {
+      this.inputs[0].values = this.inputs_api[0].values
+      this.inputs[1].values = this.inputs_api[1].values
+      this.inputs[2].values = this.inputs_api[2].values
     }
   }
 }
