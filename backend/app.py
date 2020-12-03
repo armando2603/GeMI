@@ -162,7 +162,7 @@ def hola2():
     class_names = [pred.tokenizer.decode([x]) for x in range(len(pred.tokenizer))]
     explainer = LimeTextExplainer(class_names=class_names)
     pred.fields = [' ' + data['field']]
-    exp = explainer.explain_instance(input_text, pred.predict, num_features=5, top_labels=1, num_samples=100)
+    exp = explainer.explain_instance(input_text, pred.predict, num_features=5, top_labels=1, num_samples=70)
     label = exp.available_labels()
     print(f'The top class is {pred.tokenizer.decode(list(label))}')
     weight_list = exp.as_list(label=label[0])

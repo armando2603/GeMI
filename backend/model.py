@@ -111,9 +111,11 @@ class Predictor:
                     # print(f'final index is {index}')
                     # print(self.tokenizer.decode([generated_sequence[index-2]]))
                     # print(self.tokenizer.decode([generated_sequence[index]]))
-                    if (index - 3) > len(generated_sequence):
+                    if index >= len(generated_sequence):
                         index = -1
                     self.indexes.append(index)
+                    print(index)
+                    print(len(distributions))
                     results.append(distributions[index].detach().cpu().numpy())
         results_array = np.array(results)
         self.generated_sequence = self.tokenizer.decode(generated_sequence)
