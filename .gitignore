@@ -22,6 +22,7 @@ node_modules
 **/__pycache__
 .vscode
 */Trained_Model.pth
+*/*.pth
 
 # BEX related directories and files
 /src-bex/www
