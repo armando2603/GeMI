@@ -2,10 +2,37 @@
   <div class='q-pa-md'>
     <div class='q-pa-md justify-evenly row'>
       <div>
+        <template>
+          <div class="q-pb-md justify-evenly row">
+            <q-table
+              class='table'
+              table-header-class='text-primary'
+              color='primary'
+              dense
+              wrap-cells
+              separator="cell"
+              virtual-scroll
+              :data="dataset_json"
+              :columns="columns"
+              row-key="id"
+              selection="single"
+              :selected.sync="selected"
+              :pagination.sync="pagination"
+              :selected-rows-label="getEmptyString"
+              bordered
+            >
+              <template v-slot:top>
+                <div class="text-h6 text-primary q-pl-md">Dataset</div>
+              </template>
+            </q-table>
+          </div>
+        </template>
+      </div>
+      <div>
         <div class='row q-pb-md'>
           <q-input
           class='input-id q-pb-md'
-          outlined v-model="id"
+          outlined v-model="selected[0].id"
           label="GEO ID"
           :error='!isValid'
           >
@@ -90,6 +117,11 @@
 </template>
 
 <style lang="sass" scoped>
+.table
+  width: 100%
+  max-height: 400px
+  max-width: 750px
+  min-width: 600px
 .my-outputs
   width: 100%
   max-width: 200px
@@ -103,6 +135,7 @@
 
 <script>
 import json from '../assets/dataset.json'
+import jsonTable from '../assets/dataset_table.json'
 export default {
   data () {
     return {
@@ -115,6 +148,25 @@ export default {
       gpt2Computed: false,
       isValid: true,
       dataset: json,
+      dataset_json: jsonTable,
+      selected: [{ id: '' }],
+      pagination: {
+        rowsPerPage: 200
+      },
+      columns: [
+        {
+          name: 'id',
+          required: true,
+          label: 'GEO ID',
+          align: 'left',
+          field: row => row.id,
+          format: val => `${val}`,
+          sortable: false
+        },
+        { name: 'title', align: 'left', label: 'TITLE', field: 'title', sortable: false },
+        { name: 'description', align: 'left', label: 'DESCRIPTION', field: 'description', sortable: false },
+        { name: 'characteristics', align: 'left', label: 'CHARACTERISTICS', field: 'characteristics', sortable: false }
+      ],
       id: 'GSM1568245',
       inputs_api: [
         { field: 'Title', values: [{ text: '', color: 'bg-white' }] },
@@ -157,6 +209,7 @@ export default {
     searchData () {
       this.limeComputed = [false, false, false, false]
       this.gpt2Computed = false
+      this.id = this.selected[0].id
       if ((this.id in this.dataset) === false) {
         this.isValid = false
         this.disableGpt2button = true
@@ -213,6 +266,9 @@ export default {
       this.inputs[0].values = this.inputs_api[0].values
       this.inputs[1].values = this.inputs_api[1].values
       this.inputs[2].values = this.inputs_api[2].values
+    },
+    getEmptyString () {
+      return ''
     }
   }
 }

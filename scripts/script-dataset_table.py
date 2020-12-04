@@ -1,12 +1,12 @@
 import pandas as pd
 import json
 
-df = pd.read_csv('src/assets/dataset.csv')
+df = pd.read_csv('../frontend/src/assets/dataset.csv')
 # load the json structure
 dump_json = df.to_json(orient='values')
 raw_json = json.loads(dump_json)
 # create a new dict
-json_dict = dict()
+dataset = []
 for elem in raw_json:
     # I use the GSM id as key in the json
     id = elem[0]
@@ -21,17 +21,18 @@ for elem in raw_json:
     input_split = [input_split[0], tmp_split[0], tmp_split[1]]
     input_split[2] = ''.join(['Characteristics', input_split[2]])
     input_split = [input_split[i].split(': ') for i in range(len(input_split))]
-    # there are ' :' in the description text, so I join it  
+    # there are ' :' in the description text, so I join it
     for i in range(len(input_split)):
         if len(input_split[i]) > 1:
             input_split[i][1] = ': '.join(input_split[i][1:])
     # create the dict
-    json_dict[id] = dict(
+    dataset.append(dict(
+        id=id,
         title=input_split[0][1],
         description=input_split[1][1],
         characteristics=input_split[2][1]
-    )
+    ))
 # create the json file
-with open('src/assets/dataset.json', 'w') as json_file:
-    json.dump(json_dict, json_file)
+with open('../frontend/src/assets/dataset_table.json', 'w') as json_file:
+    json.dump(dataset, json_file)
 print('json file created.')

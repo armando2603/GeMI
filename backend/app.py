@@ -19,23 +19,39 @@ def hola():
     input_text = ''
     for element in data:
         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
-    input_text = input_text[:-2] + '= '
-    pred.fields = [' Cell Line', ' Cell Type', ' Tissue Type', ' Factor']
+    input_text = input_text[:-2] + '='
+    # TODO output_fields deve arrivare dal frontend
+    output_fields = ['Cell Line', 'Cell Type', 'Tissue Type', 'Factor']
+    pred.fields = [' ' + field for field in output_fields]
     print(input_text)
     confidence = np.max(pred.predict([input_text]), 1)
     # print(f'the confidence is {confidence}')
-    response_text = pred.generated_sequence
+    output_ids = pred.generated_sequence_ids
+    output_indexes = pred.indexes
     # print(type(response_text))
     # print(response_text)
-    first_split = response_text.split(' $ ')[0]
-    first_split = first_split.split(' - ')
-    second_split = [first_split[i].split(': ') for i in range(len(first_split))]
-    second_split = second_split[1:]
-    print(second_split)
+    # first_split = response_text.split(' $ ')[0]
+    # first_split = first_split.split(' - ')
+    # second_split = [first_split[i].split(': ') for i in range(len(first_split))]
+    # second_split = second_split[1:]
+    # print(second_split)
     print(confidence)
+    output_split = []
+    for i in range(len(output_indexes)):
+        if i < len(output_indexes) - 1:
+            value = pred.tokenizer.decode(output_ids[
+                output_indexes[i]:output_indexes[i+1]-len(
+                    pred.tokenizer.encode(output_fields[i+1])
+                )-2
+            ])
+            output_split.append([output_fields[i], value])
+        else:
+            value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
+            output_split.append([output_fields[i], value])
 
     attentions = pred.attentions
-    output_indexes = pred.indexes
+    attentions = np.mean(attentions, 1)
+    attentions = np.mean(attentions, 0)
     input_fields = [' ' + element['field'] for element in data]
     input_fields[0] = data[0]['field']
     values_indexes = []
@@ -76,8 +92,19 @@ def hola():
         )
     )
     attention_inputs = []
-    for output_index in output_indexes:
-        scores = attentions[len(input_tokens) + output_index, :len(input_tokens)]
+    for j in range(len(output_indexes)):
+        if j < len(output_indexes) - 1:
+            scores = attentions[
+                len(input_tokens)+output_indexes[j]:len(input_tokens)
+                + output_indexes[j+1]
+                - len(pred.tokenizer.encode(output_fields[j+1]))
+                - 1, :len(input_tokens)
+            ]
+        else:
+            scores = attentions[
+                len(input_tokens)+output_indexes[j]:-1, :len(input_tokens)
+            ]
+        scores = np.mean(scores, axis=0)
 
         filtered_scores = []
 
@@ -85,11 +112,11 @@ def hola():
             if i < len(values_indexes) - 1:
                 filtered_scores += list(scores[
                     values_indexes[i]:values_indexes[i+1]-len(
-                        pred.tokenizer.encode(second_split[i+1][0])
+                        pred.tokenizer.encode(output_fields[i+1])
                     )-1
                 ])
             else:
-                filtered_scores += list(scores[values_indexes[i]:-2])
+                filtered_scores += list(scores[values_indexes[i]:-1])
         max_scores = np.max(filtered_scores)
         max_scores = 1 if max_scores == 0.0 else max_scores
         scores = scores / max_scores
@@ -102,14 +129,14 @@ def hola():
             if i < len(values_indexes) - 1:
                 attention_input.append(input_list[
                     values_indexes[i]:values_indexes[i+1]-len(
-                        pred.tokenizer.encode(second_split[i+1][0])
+                        pred.tokenizer.encode(output_fields[i+1])
                     )-1
                 ])
             else:
-                attention_input.append(input_list[values_indexes[i]:-2])
+                attention_input.append(input_list[values_indexes[i]:-1])
+        print(attention_input)
         new_attention_input = []
         for values_list in attention_input:
-            print
             new_values_list = []
             i = 1
             while i < len(values_list):
@@ -119,7 +146,6 @@ def hola():
                 while end_word is False:
                     next_word = values_list[i][0]
                     next_score = values_list[i][1]
-                    print(next_word)
                     if (next_word[0] !=
                             (' ' or '-' or ':' or ';' or '(' or ')')):
                         new_world += next_word
@@ -139,17 +165,18 @@ def hola():
                 opacity = np.int(np.ceil(value[1]*5))
                 bg_colors = f'bg-green-{opacity}' if opacity > 0 else 'bg-white'
                 attention_input[i][k][1] = bg_colors
-
-            attention_input[i] = [dict(text=elem[0], color=elem[1]) for elem in attention_input[i]]       
+            attention_input[i] = [
+                dict(text=elem[0], color=elem[1]) for elem in attention_input[i]
+            ]
         attention_inputs.append(attention_input)
     outputs = [dict(
         field=elem[0],
         value=elem[1],
-        color=f'teal-{np.int(np.ceil(confidence[i]*5))}'
-        ) for i, elem in enumerate(second_split)]
+        color=f'teal-{10+np.int(np.ceil(confidence[i]*4))}'
+        ) for i, elem in enumerate(output_split)]
 
     response = {'outputs': outputs, 'attentions': attention_inputs}
-    print(response['attentions'][0][0])
+    print(response['attentions'][0][2])
     # print(jsonify(response))
     return jsonify(response)
 

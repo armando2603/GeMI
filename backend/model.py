@@ -78,8 +78,6 @@ class Predictor:
                     for layer in outputs.attentions
                 ]
                 self.attentions = np.array(self.attentions)
-                self.attentions = np.mean(self.attentions, 1)
-                self.attentions = np.mean(self.attentions, 0)
                 print(self.tokenizer.decode(generated_sequence))
 
                 self.indexes = []
@@ -108,9 +106,9 @@ class Predictor:
                         index = -1
                     else:
                         index = indexes[np.where(indexes != -1)[0][0]] + 2
-                    # print(f'final index is {index}')
-                    # print(self.tokenizer.decode([generated_sequence[index-2]]))
-                    # print(self.tokenizer.decode([generated_sequence[index]]))
+                    print(f'final index is {index}')
+                    print(self.tokenizer.decode([generated_sequence[index-2]]))
+                    print(self.tokenizer.decode([generated_sequence[index]]))
                     if index >= len(generated_sequence):
                         index = -1
                     self.indexes.append(index)
@@ -118,5 +116,5 @@ class Predictor:
                     print(len(distributions))
                     results.append(distributions[index].detach().cpu().numpy())
         results_array = np.array(results)
-        self.generated_sequence = self.tokenizer.decode(generated_sequence)
+        self.generated_sequence_ids = generated_sequence
         return results_array
