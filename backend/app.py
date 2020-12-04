@@ -134,7 +134,7 @@ def hola():
                 ])
             else:
                 attention_input.append(input_list[values_indexes[i]:-1])
-        print(attention_input)
+        # print(attention_input)
         new_attention_input = []
         for values_list in attention_input:
             new_values_list = []
@@ -176,7 +176,7 @@ def hola():
         ) for i, elem in enumerate(output_split)]
 
     response = {'outputs': outputs, 'attentions': attention_inputs}
-    print(response['attentions'][0][2])
+    # print(response['attentions'][0][2])
     # print(jsonify(response))
     return jsonify(response)
 
@@ -232,7 +232,7 @@ def hola2():
                 else:
                     sign = 'negative'
                     color = 'red'
-                print(np.ceil(abs((score_element) / max_scores[sign])*5))
+                # print(np.ceil(abs((score_element) / max_scores[sign])*5))
                 opacity = int(np.ceil(abs((score_element) / max_scores[sign])*5)) if max_scores[sign] > 0 else int(np.ceil(score_element))
                 result[i].append(dict(text=element, color=f'bg-{color}-{opacity}'))
             else:
