@@ -7,14 +7,15 @@ from tqdm import tqdm
 
 class Predictor:
     def __init__(self):
-        self.fields = [' Cell Line', ' Cell Type', ' Tissue Type', ' Factor']
+        self.pretrained_model = ''
+        self.fields = []
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu"
         )
         self.generated_sequence = None
         self.MAX_LEN = 400
         # Load pre-trained model (weights)
-        model_name = 'gpt2'
+        model_name = 'distilgpt2'
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 
         # Load pre-trained model (weights)
@@ -27,7 +28,7 @@ class Predictor:
         self.model.resize_token_embeddings(len(self.tokenizer))
         self.model.load_state_dict(
             torch.load(
-                "Trained_Model.pth",
+                'Trained_Model_2.pth',
                 map_location=torch.device(self.device)
             )
         )
@@ -41,6 +42,8 @@ class Predictor:
     def predict(self, list_input_text):
         list_idx = []
         for i, input_text in enumerate(list_input_text):
+            if input_text[-1] != '=' and input_text[-1] != ' ':
+                input_text += ' ='
             indexed_tokens = self.tokenizer.encode(
                 input_text,
                 truncation=True,
@@ -62,7 +65,7 @@ class Predictor:
 
                 while (predicted_token != tokenof_ and
                        predicted_token != self.tokenizer.pad_token_id and
-                       len(generated_sequence) < 50):
+                       len(generated_sequence) < 300):
                     outputs = self.model(input_idx)
                     next_token_logits = outputs.logits[:, -1, :]
                     predicted_token_tensor = torch.argmax(next_token_logits)
@@ -106,14 +109,14 @@ class Predictor:
                         index = -1
                     else:
                         index = indexes[np.where(indexes != -1)[0][0]] + 2
-                    print(f'final index is {index}')
-                    print(self.tokenizer.decode([generated_sequence[index-2]]))
-                    print(self.tokenizer.decode([generated_sequence[index]]))
                     if index >= len(generated_sequence):
                         index = -1
                     self.indexes.append(index)
-                    print(index)
-                    print(len(distributions))
+                    # print(f'final index is {index}')
+                    # print(self.tokenizer.decode([generated_sequence[index-2]]))
+                    # print(self.tokenizer.decode([generated_sequence[index]]))
+                    # print(index)
+                    # print(len(distributions))
                     results.append(distributions[index].detach().cpu().numpy())
         results_array = np.array(results)
         self.generated_sequence_ids = generated_sequence

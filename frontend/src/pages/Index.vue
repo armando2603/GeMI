@@ -1,33 +1,53 @@
 <template>
   <div class='q-pa-md'>
+    <div class='q-pt-md justify-evenly column'>
+    <div>
+      <template>
+        <div class="justify-evenly row">
+          <q-table
+            class='table'
+            table-header-class='text-primary'
+            color='primary'
+            dense
+            table-class='text-grey-8'
+            wrap-cells
+            separator="cell"
+            virtual-scroll
+            :data="dataset_json"
+            :columns="columns"
+            row-key="id"
+            selection="single"
+            :selected.sync="selected"
+            :pagination.sync="pagination"
+            :selected-rows-label="getEmptyString"
+            bordered
+          >
+            <template v-slot:top>
+              <div class="text-h6 text-primary q-pl-md">Dataset</div>
+              <div class='q-pl-md'>
+                <q-btn-toggle
+                  v-model="datasetType"
+                  class="toggle"
+                  no-caps
+                  rounded
+                  dense
+                  toggle-color='primary'
+                  unelevated
+                  spread
+                  color="white"
+                  text-color="primary"
+                  :options="[
+                    {label: 'Exp1', value: 'exp1'},
+                    {label: 'Exp2', value: 'exp2'}
+                  ]"
+                />
+              </div>
+            </template>
+          </q-table>
+        </div>
+      </template>
+    </div>
     <div class='q-pa-md justify-evenly row'>
-      <div>
-        <template>
-          <div class="q-pb-md justify-evenly row">
-            <q-table
-              class='table'
-              table-header-class='text-primary'
-              color='primary'
-              dense
-              wrap-cells
-              separator="cell"
-              virtual-scroll
-              :data="dataset_json"
-              :columns="columns"
-              row-key="id"
-              selection="single"
-              :selected.sync="selected"
-              :pagination.sync="pagination"
-              :selected-rows-label="getEmptyString"
-              bordered
-            >
-              <template v-slot:top>
-                <div class="text-h6 text-primary q-pl-md">Dataset</div>
-              </template>
-            </q-table>
-          </div>
-        </template>
-      </div>
       <div>
         <div class='row q-pb-md'>
           <q-input
@@ -85,16 +105,17 @@
           />
         </div>
         <div class="q-pa-md">
-          <q-card class="my-outputs">
+          <q-card>
             <q-card-section>
               <div class="text-h6 text-primary q-pl-md"> Output</div>
-              <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
-                <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
-                  <template v-slot:control>
-                    <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
-                  </template>
-                </q-field>
-              </div>
+            <div class='my-outputs row'>
+                <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
+                  <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
+                    <template v-slot:control>
+                      <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
+                    </template>
+                  </q-field>
+                </div>
               <q-dialog v-model="loadIcon" persistent transition-show="scale" transition-hide="scale">
                 <q-card style="width: 300px" class="text-primary">
                   <q-card-section>
@@ -108,9 +129,11 @@
                   </div>
                 </q-card>
               </q-dialog>
+            </div>
             </q-card-section>
           </q-card>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -120,11 +143,15 @@
 .table
   width: 100%
   max-height: 400px
-  max-width: 750px
-  min-width: 600px
+  max-width: 65%
+  min-width: 10%
+.output-field
+  width: 120px
+  height: 60px
 .my-outputs
-  width: 100%
-  max-width: 200px
+  min-height: 150px
+  max-width: 410px
+  max-height: 500px
 .toggle
   border: 1px solid #027be3
 .input-id
@@ -139,6 +166,7 @@ import jsonTable from '../assets/dataset_table.json'
 export default {
   data () {
     return {
+      datasetType: 'exp1',
       typeInterpreter: 'attention',
       disableGpt2button: true,
       loadGpt2: false,
@@ -180,11 +208,29 @@ export default {
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
       attentionResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
-      outputs: [
-        { field: 'Cell Line', value: '', color: 'grey-3' },
-        { field: 'Cell Type', value: '', color: 'grey-3' },
-        { field: 'Tissue Type', value: '', color: 'grey-3' },
-        { field: 'Factor', value: '', color: 'grey-3' }
+      outputs: [],
+      output_fields_exp1: [
+        'Cell Line',
+        'Cell Type',
+        'Tissue Type',
+        'Factor'
+      ],
+      output_fields_exp2: [
+        'Assay name',
+        'Assay type',
+        'Target of assay',
+        'Genome assembly',
+        'Biosample term name',
+        'Project',
+        'Organism',
+        'Life stage',
+        'Age',
+        'Age units',
+        'Sex',
+        'Ethnicity',
+        'Health status',
+        'Classification',
+        'Investigated as'
       ]
     }
   },
@@ -194,12 +240,9 @@ export default {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
         // http://10.79.23.5:5003 or http://localhost:5000/prova2
-        this.$axios.post('http://10.79.23.5:5003/prova2', this.inputs_api).then((response) => {
+        this.$axios.post('http://10.79.23.5:5003/prova2', [this.inputs_api, this.output_fields]).then((response) => {
           this.outputs = response.data.outputs
           this.attentionResults = response.data.attentions
-          // for (const i of Array(3).keys()) {
-          //   this.inputs[i].values = response.data.attentions[1][i]
-          // }
           this.gpt2Computed = true
           this.loadGpt2 = false
           this.disableGpt2button = true

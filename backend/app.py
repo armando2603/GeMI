@@ -16,26 +16,22 @@ pred = Predictor()
 @app.route('/prova2', methods=['POST'])
 def hola():
     data = request.get_json()
-    input_text = ''
+    data = data[0]
+    input_text = ' '
     for element in data:
         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
     input_text = input_text[:-2] + '='
     # TODO output_fields deve arrivare dal frontend
-    output_fields = ['Cell Line', 'Cell Type', 'Tissue Type', 'Factor']
+    # output_fields = ['Cell Line', 'Cell Type', 'Tissue Type', 'Factor']
+    output_fields = ['Assay name', 'Assay type', 'Target of assay', 'Genome assembly', 'Biosample term name', 'Project', 'Organism', 'Life stage', 'Age', 'Age units', 'Sex', 'Ethnicity', 'Health status', 'Classification', 'Investigated as']
     pred.fields = [' ' + field for field in output_fields]
+    pred.pretrained_model = 'Trained_Model_2.pth'
     print(input_text)
     confidence = np.max(pred.predict([input_text]), 1)
     # print(f'the confidence is {confidence}')
     output_ids = pred.generated_sequence_ids
     output_indexes = pred.indexes
-    # print(type(response_text))
-    # print(response_text)
-    # first_split = response_text.split(' $ ')[0]
-    # first_split = first_split.split(' - ')
-    # second_split = [first_split[i].split(': ') for i in range(len(first_split))]
-    # second_split = second_split[1:]
-    # print(second_split)
-    print(confidence)
+
     output_split = []
     for i in range(len(output_indexes)):
         if i < len(output_indexes) - 1:
@@ -53,7 +49,6 @@ def hola():
     attentions = np.mean(attentions, 1)
     attentions = np.mean(attentions, 0)
     input_fields = [' ' + element['field'] for element in data]
-    input_fields[0] = data[0]['field']
     values_indexes = []
     for field in input_fields:
         field_ids = np.array(pred.tokenizer.encode(field))
@@ -189,7 +184,7 @@ def hola2():
     class_names = [pred.tokenizer.decode([x]) for x in range(len(pred.tokenizer))]
     explainer = LimeTextExplainer(class_names=class_names)
     pred.fields = [' ' + data['field']]
-    exp = explainer.explain_instance(input_text, pred.predict, num_features=5, top_labels=1, num_samples=70)
+    exp = explainer.explain_instance(input_text, pred.predict, num_features=5, top_labels=1, num_samples=100)
     label = exp.available_labels()
     print(f'The top class is {pred.tokenizer.decode(list(label))}')
     weight_list = exp.as_list(label=label[0])
