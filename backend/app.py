@@ -16,16 +16,15 @@ pred = Predictor()
 @app.route('/prova2', methods=['POST'])
 def hola():
     data = request.get_json()
-    data = data[0]
+    inputs_data = data['inputs']
     input_text = ' '
-    for element in data:
+    for element in inputs_data:
         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
     input_text = input_text[:-2] + '='
-    # TODO output_fields deve arrivare dal frontend
-    # output_fields = ['Cell Line', 'Cell Type', 'Tissue Type', 'Factor']
-    output_fields = ['Assay name', 'Assay type', 'Target of assay', 'Genome assembly', 'Biosample term name', 'Project', 'Organism', 'Life stage', 'Age', 'Age units', 'Sex', 'Ethnicity', 'Health status', 'Classification', 'Investigated as']
+    output_fields = data['output_fields']
     pred.fields = [' ' + field for field in output_fields]
-    pred.pretrained_model = 'Trained_Model_2.pth'
+    output_fields = [' ' + field for field in output_fields]
+    pred.model_id = data['exp_id']
     print(input_text)
     confidence = np.max(pred.predict([input_text]), 1)
     # print(f'the confidence is {confidence}')
@@ -48,7 +47,7 @@ def hola():
     attentions = pred.attentions
     attentions = np.mean(attentions, 1)
     attentions = np.mean(attentions, 0)
-    input_fields = [' ' + element['field'] for element in data]
+    input_fields = [' ' + element['field'] for element in inputs_data]
     values_indexes = []
     for field in input_fields:
         field_ids = np.array(pred.tokenizer.encode(field))
@@ -129,7 +128,6 @@ def hola():
                 ])
             else:
                 attention_input.append(input_list[values_indexes[i]:-1])
-        # print(attention_input)
         new_attention_input = []
         for values_list in attention_input:
             new_values_list = []
@@ -169,7 +167,7 @@ def hola():
         value=elem[1],
         color=f'teal-{10+np.int(np.ceil(confidence[i]*4))}'
         ) for i, elem in enumerate(output_split)]
-
+    # print(outputs)
     response = {'outputs': outputs, 'attentions': attention_inputs}
     # print(response['attentions'][0][2])
     # print(jsonify(response))

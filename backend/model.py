@@ -14,19 +14,33 @@ class Predictor:
         )
         self.generated_sequence = None
         self.MAX_LEN = 400
+        self.model = None
+        self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'distilgpt2'
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 
         # Load pre-trained model (weights)
-        self.model = GPT2LMHeadModel.from_pretrained(
+        self.model_1 = GPT2LMHeadModel.from_pretrained(
+            'gpt2',
+            output_attentions=True,
+            return_dict=True
+        )
+        self.model_2 = GPT2LMHeadModel.from_pretrained(
             model_name,
             output_attentions=True,
             return_dict=True
         )
         self.tokenizer.add_special_tokens({'pad_token': '<pad>'})
-        self.model.resize_token_embeddings(len(self.tokenizer))
-        self.model.load_state_dict(
+        self.model_1.resize_token_embeddings(len(self.tokenizer))
+        self.model_1.load_state_dict(
+            torch.load(
+                'Trained_Model.pth',
+                map_location=torch.device(self.device)
+            )
+        )
+        self.model_2.resize_token_embeddings(len(self.tokenizer))
+        self.model_2.load_state_dict(
             torch.load(
                 'Trained_Model_2.pth',
                 map_location=torch.device(self.device)
@@ -35,11 +49,19 @@ class Predictor:
 
         # Set the model in evaluation mode to deactivate the DropOut modules
         # This is IMPORTANT to have reproducible results during evaluation!
-        self.model.eval()
-        self.model.to(self.device)
+        self.model_1.eval()
+        self.model_1.to(self.device)
+
+        self.model_2.eval()
+        self.model_2.to(self.device)
 
     # this is used for lime and return the distributions of the output
     def predict(self, list_input_text):
+        assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
+        if self.model_id == 1:
+            self.model = self.model_1
+        if self.model_id == 2:
+            self.model = self.model_2
         list_idx = []
         for i, input_text in enumerate(list_input_text):
             if input_text[-1] != '=' and input_text[-1] != ' ':
@@ -65,7 +87,7 @@ class Predictor:
 
                 while (predicted_token != tokenof_ and
                        predicted_token != self.tokenizer.pad_token_id and
-                       len(generated_sequence) < 300):
+                       len(generated_sequence) < 500):
                     outputs = self.model(input_idx)
                     next_token_logits = outputs.logits[:, -1, :]
                     predicted_token_tensor = torch.argmax(next_token_logits)
