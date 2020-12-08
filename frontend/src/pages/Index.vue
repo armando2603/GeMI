@@ -330,8 +330,9 @@ export default {
             this.loadIcon = true
             this.limeComputed[index] = true
             this.$axios.post('http://10.79.23.5:5003/prova', {
-              inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field
+              inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field, exp_id: this.datasetType
             }).then((response) => {
+              this.loadIcon = false
               for (const i of Array(this.inputs_api.length).keys()) {
                 this.limeResults[index][i] = response.data[i]
                 this.inputs[i].values = response.data[i]
@@ -374,7 +375,11 @@ export default {
       }
       if (this.datasetType === 2) {
         this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
-        this.inputs_api = this.inputs
+        this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
+        this.limeResults = []
+        for (const x of Array(this.output_fields[this.datasetType].length).keys()) {
+          this.limeResults[x] = [[], [], []]
+        }
         this.showGeoInput = false
         this.columns = this.columns2
         this.dataset_json = this.dataset_json_2

@@ -87,7 +87,7 @@ class Predictor:
 
                 while (predicted_token != tokenof_ and
                        predicted_token != self.tokenizer.pad_token_id and
-                       len(generated_sequence) < 500):
+                       len(generated_sequence) < 300):
                     outputs = self.model(input_idx)
                     next_token_logits = outputs.logits[:, -1, :]
                     predicted_token_tensor = torch.argmax(next_token_logits)

@@ -39,10 +39,10 @@ def hola():
                     pred.tokenizer.encode(output_fields[i+1])
                 )-2
             ])
-            output_split.append([output_fields[i], value])
+            output_split.append([data['output_fields'][i], value])
         else:
             value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
-            output_split.append([output_fields[i], value])
+            output_split.append([data['output_fields'][i], value])
 
     attentions = pred.attentions
     attentions = np.mean(attentions, 1)
@@ -73,7 +73,7 @@ def hola():
         if (len(np.where(indexes != -1)[0]) == 0):
             index = -1
         else:
-            index = indexes[np.where(indexes != -1)[0][0]] + 2
+            index = indexes[np.where(indexes != 1)[0][0]] + 2
 
         values_indexes.append(index)
 
@@ -178,17 +178,21 @@ def hola():
 def hola2():
     data = request.get_json()
     inp_data = data['inputs']
-    input_text = f'{inp_data[0]["field"]}: {inp_data[0]["values"][0]["text"]} - {inp_data[1]["field"]}: {inp_data[1]["values"][0]["text"]} - {inp_data[2]["field"]}: {inp_data[2]["values"][0]["text"]} = '
+    input_text = ' '
+    for element in inp_data:
+        input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
+    input_text = input_text[:-2] + '='
     class_names = [pred.tokenizer.decode([x]) for x in range(len(pred.tokenizer))]
     explainer = LimeTextExplainer(class_names=class_names)
     pred.fields = [' ' + data['field']]
+    pred.model_id = data['exp_id']
     exp = explainer.explain_instance(input_text, pred.predict, num_features=5, top_labels=1, num_samples=100)
     label = exp.available_labels()
     print(f'The top class is {pred.tokenizer.decode(list(label))}')
     weight_list = exp.as_list(label=label[0])
     # weight_list = [('strain', 0.011063898017284577), ('musculus', 0.006857319100477079), ('H3K27me3', -0.005545956698784501)]
     result = [[], [], []]
-    splits = [[inp_data[i]["values"][0]["text"]] for i in range(3)]
+    splits = [[inp_data[i]["values"][0]["text"]] for i in range(len(inp_data))]
     # print(weight_list)
     max_scores = {'negative': 0, 'positive': 0}
     for (word, score) in weight_list:
@@ -198,7 +202,7 @@ def hola2():
         else:
             if abs(score) > max_scores['negative']:
                 max_scores['negative'] = abs(score)
-        for i in range(3):
+        for i in range(len(inp_data)):
             new_split = []
             # print(splits[i])
             for element in splits[i]:
