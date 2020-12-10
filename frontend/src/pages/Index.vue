@@ -62,10 +62,10 @@
               This id is not valid
             </template>
           </q-input>
-          <div class='q-pl-md q-pt-sm'>
+          <div class='q-pl-md q-pt-md q-pb-md'>
             <q-btn round icon='search' color="primary" @click='searchData'/>
           </div>
-          <div class='q-pl-md q-pt-sm'>
+          <div class='q-pl-md q-pt-md q-pb-md'>
             <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
           </div>
         </div>
@@ -88,6 +88,16 @@
       </div>
       <div>
         <div class="q-pa-md justify-evenly row">
+          <div>
+            <q-toggle
+              class = 'q-pr-md text-grey-8'
+              style="white-space: pre-wrap;"
+              v-model="disableNone"
+              label="Disable None:"
+              @input='resetInputs()'
+              left-label
+            />
+          </div>
           <q-btn-toggle
             v-model="typeInterpreter"
             class="toggle"
@@ -114,7 +124,7 @@
               </div>
               <div class='my-outputs row'>
                 <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
-                  <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
+                  <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed || ((output.value===' None' || output.value===' unknown') && disableNone)" stack-label outlined :bg-color='output.color' :label="output.field" >
                     <template v-slot:control>
                       <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
                     </template>
@@ -138,12 +148,29 @@
           </q-card>
         </div>
       </div>
+      <div class="q-pt-lg  selection-type" v-if='typeInterpreter === "attention"'>
+        <q-card>
+          <q-card-section>
+            <div class="text-h6 text-primary">Aggregation Type</div>
+            <q-option-group
+              class="q-pt-md"
+              v-model="aggregationType"
+              :options="options"
+              color="primary"
+              @input='visualizeNewAggregation()'
+            />
+          </q-card-section>
+        </q-card>
+      </div>
       </div>
     </div>
   </div>
 </template>
 
 <style lang="sass" scoped>
+.selection-type
+  position: relative;
+  top: 60px
 .table
   width: 100%
   max-height: 400px
@@ -171,6 +198,23 @@ import jsonTable2 from '../assets/dataset_table2.json'
 export default {
   data () {
     return {
+      aggregationType: 1,
+      options: [
+        {
+          label: 'Type 1 (last layer)',
+          value: 0
+        },
+        {
+          label: 'Type 2 (mean of layers)',
+          value: 1
+        },
+        {
+          label: 'Type 3 (multiply layers)',
+          value: 2
+        }
+      ],
+      disableNone: true,
+      last_index: 'no_index',
       showGeoInput: true,
       datasetType: 1,
       typeInterpreter: 'attention',
@@ -243,7 +287,7 @@ export default {
         { field: 'Characteristics', values: [{ text: '', color: 'bg-white' }] }
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
-      attentionResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
+      attentionResults: [],
       outputs: [],
       output_fields: {
         1: [
@@ -278,7 +322,7 @@ export default {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
         // http://10.79.23.5:5003 or http://localhost:5000/prova2
-        this.$axios.post('http://10.79.23.5:5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
+        this.$axios.post('http://localhost:5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
           this.outputs = response.data.outputs
           this.attentionResults = response.data.attentions
           this.gpt2Computed = true
@@ -318,6 +362,7 @@ export default {
       }
       this.isValid = true
       this.disableGpt2button = false
+      this.last_index = 'no_index'
     },
     visualize (index) {
       if (this.gpt2Computed) {
@@ -329,7 +374,7 @@ export default {
           } else {
             this.loadIcon = true
             this.limeComputed[index] = true
-            this.$axios.post('http://10.79.23.5:5003/prova', {
+            this.$axios.post('http://localhost:5003/prova', {
               inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field, exp_id: this.datasetType
             }).then((response) => {
               this.loadIcon = false
@@ -343,8 +388,9 @@ export default {
         }
         if (this.typeInterpreter === 'attention') {
           for (const i of Array(this.inputs_api.length).keys()) {
-            this.inputs[i].values = this.attentionResults[index][i]
+            this.inputs[i].values = this.attentionResults[this.aggregationType][index][i]
           }
+          this.last_index = index
         }
       }
     },
@@ -388,6 +434,17 @@ export default {
       this.outputs = []
       this.selected = [{ id: '' }]
       this.isValid = true
+    },
+    visualizeNewAggregation () {
+      if (this.last_index !== 'no_index') {
+        for (const i of Array(this.inputs_api.length).keys()) {
+          this.inputs[i].values = this.attentionResults[this.aggregationType][this.last_index][i]
+        }
+      } else {
+        for (const i of Array(this.inputs_api.length).keys()) {
+          this.inputs[i].values = this.this_input_api[i].values
+        }
+      }
     }
   }
 }

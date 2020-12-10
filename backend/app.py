@@ -26,8 +26,8 @@ def hola():
     output_fields = [' ' + field for field in output_fields]
     pred.model_id = data['exp_id']
     print(input_text)
-    confidence = np.max(pred.predict([input_text]), 1)
-    # print(f'the confidence is {confidence}')
+    pred.predict([input_text])
+    confidences = pred.confidences
     output_ids = pred.generated_sequence_ids
     output_indexes = pred.indexes
 
@@ -45,8 +45,17 @@ def hola():
             output_split.append([data['output_fields'][i], value])
 
     attentions = pred.attentions
-    attentions = np.mean(attentions, 1)
-    attentions = np.mean(attentions, 0)
+    attentions_list = []
+
+    attentions_1 = np.mean(attentions[-1, :], axis=0)
+    attentions_list.append(attentions_1)
+    attentions_2 = np.mean(np.mean(attentions, 1), axis=0)
+    attentions_list.append(attentions_2)
+    attentions_3 = np.multiply.reduce(np.mean(attentions, 1), axis=0)
+    attentions_list.append(attentions_3)
+    # attentions_4 = np.mean(np.mean(attentions, 0), 0)
+    # attentions_list.append(attentions_4)
+
     input_fields = [' ' + element['field'] for element in inputs_data]
     values_indexes = []
     for field in input_fields:
@@ -85,90 +94,94 @@ def hola():
             input_tokens
         )
     )
-    attention_inputs = []
-    for j in range(len(output_indexes)):
-        if j < len(output_indexes) - 1:
-            scores = attentions[
-                len(input_tokens)+output_indexes[j]:len(input_tokens)
-                + output_indexes[j+1]
-                - len(pred.tokenizer.encode(output_fields[j+1]))
-                - 1, :len(input_tokens)
-            ]
-        else:
-            scores = attentions[
-                len(input_tokens)+output_indexes[j]:-1, :len(input_tokens)
-            ]
-        scores = np.mean(scores, axis=0)
-
-        filtered_scores = []
-
-        for i in range(len(values_indexes)):
-            if i < len(values_indexes) - 1:
-                filtered_scores += list(scores[
-                    values_indexes[i]:values_indexes[i+1]-len(
-                        pred.tokenizer.encode(output_fields[i+1])
-                    )-1
-                ])
+    attention_inputs_list = []
+    for attentions in attentions_list:
+        attention_inputs = []
+        for j in range(len(output_indexes)):
+            if j < len(output_indexes) - 1:
+                scores = attentions[
+                    len(input_tokens)+output_indexes[j]:len(input_tokens)
+                    + output_indexes[j+1]
+                    - len(pred.tokenizer.encode(output_fields[j+1]))
+                    - 1, :len(input_tokens)
+                ]
             else:
-                filtered_scores += list(scores[values_indexes[i]:-1])
-        max_scores = np.max(filtered_scores)
-        max_scores = 1 if max_scores == 0.0 else max_scores
-        scores = scores / max_scores
+                scores = attentions[
+                    len(input_tokens)+output_indexes[j]:-1, :len(input_tokens)
+                ]
+            scores = np.mean(scores, axis=0)
 
-        input_list = list(zip(input_tokens, scores))
+            filtered_scores = []
 
-        attention_input = []
+            for i in range(len(values_indexes)):
+                if i < len(values_indexes) - 1:
+                    filtered_scores += list(scores[
+                        values_indexes[i]:values_indexes[i+1]-len(
+                            pred.tokenizer.encode(output_fields[i+1])
+                        )-1
+                    ])
+                else:
+                    filtered_scores += list(scores[values_indexes[i]:-1])
+            max_scores = np.max(filtered_scores)
+            max_scores = 1 if max_scores == 0.0 else max_scores
+            scores = scores / max_scores
 
-        for i in range(len(values_indexes)):
-            if i < len(values_indexes) - 1:
-                attention_input.append(input_list[
-                    values_indexes[i]:values_indexes[i+1]-len(
-                        pred.tokenizer.encode(output_fields[i+1])
-                    )-1
-                ])
-            else:
-                attention_input.append(input_list[values_indexes[i]:-1])
-        new_attention_input = []
-        for values_list in attention_input:
-            new_values_list = []
-            i = 1
-            while i < len(values_list):
-                end_word = False
-                mean_scores = [values_list[i-1][1]]
-                new_world = values_list[i-1][0]
-                while end_word is False:
-                    next_word = values_list[i][0]
-                    next_score = values_list[i][1]
-                    if (next_word[0] !=
-                            (' ' or '-' or ':' or ';' or '(' or ')')):
-                        new_world += next_word
-                        mean_scores.append(next_score)
-                    else:
-                        end_word = True
-                        new_values_list.append([new_world, np.mean(mean_scores)])
-                    i += 1
-                    if i == len(values_list):
-                        end_word = True
-                        new_values_list.append([new_world, np.mean(mean_scores)])
-            new_attention_input.append(new_values_list)
+            input_list = list(zip(input_tokens, scores))
 
-        attention_input = new_attention_input
-        for i, input_list in enumerate(attention_input):
-            for k, value in enumerate(input_list):
-                opacity = np.int(np.ceil(value[1]*5))
-                bg_colors = f'bg-green-{opacity}' if opacity > 0 else 'bg-white'
-                attention_input[i][k][1] = bg_colors
-            attention_input[i] = [
-                dict(text=elem[0], color=elem[1]) for elem in attention_input[i]
-            ]
-        attention_inputs.append(attention_input)
+            attention_input = []
+
+            for i in range(len(values_indexes)):
+                if i < len(values_indexes) - 1:
+                    attention_input.append(input_list[
+                        values_indexes[i]:values_indexes[i+1]-len(
+                            pred.tokenizer.encode(output_fields[i+1])
+                        )-1
+                    ])
+                else:
+                    attention_input.append(input_list[values_indexes[i]:-1])
+            new_attention_input = []
+            for values_list in attention_input:
+                new_values_list = []
+                i = 1
+                while i < len(values_list):
+                    end_word = False
+                    mean_scores = [values_list[i-1][1]]
+                    new_world = values_list[i-1][0]
+                    while end_word is False:
+                        next_word = values_list[i][0]
+                        next_score = values_list[i][1]
+                        if (next_word[0] !=
+                                (' ' or '-' or ':' or ';' or '(' or ')')):
+                            new_world += next_word
+                            mean_scores.append(next_score)
+                        else:
+                            end_word = True
+                            new_values_list.append([new_world, np.mean(mean_scores)])
+                        i += 1
+                        if i == len(values_list):
+                            end_word = True
+                            new_values_list.append([new_world, np.mean(mean_scores)])
+                new_attention_input.append(new_values_list)
+
+            attention_input = new_attention_input
+            for i, input_list in enumerate(attention_input):
+                for k, value in enumerate(input_list):
+                    opacity = np.int(np.ceil(value[1]*6))
+                    bg_colors = f'bg-green-{opacity}' if opacity > 1 else 'bg-white'
+                    attention_input[i][k][1] = bg_colors
+                attention_input[i] = [
+                    dict(text=elem[0], color=elem[1]) for elem in attention_input[i]
+                ]
+            attention_inputs.append(attention_input)
+        attention_inputs_list.append(attention_inputs)
     outputs = [dict(
         field=elem[0],
         value=elem[1],
-        color=f'teal-{10+np.int(np.ceil(confidence[i]*4))}'
+        color=f'teal-{10+np.int(np.ceil(confidences[i]*4))}' if (
+            elem[1] != ' unknown' and elem[1] != ' None'
+            ) else 'grey-3'
         ) for i, elem in enumerate(output_split)]
-    # print(outputs)
-    response = {'outputs': outputs, 'attentions': attention_inputs}
+    response = {'outputs': outputs, 'attentions': attention_inputs_list}
     # print(response['attentions'][0][2])
     # print(jsonify(response))
     return jsonify(response)

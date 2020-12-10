@@ -140,6 +140,27 @@ class Predictor:
                     # print(index)
                     # print(len(distributions))
                     results.append(distributions[index].detach().cpu().numpy())
+
+                self.confidences = []
+                for j in range(len(self.indexes)):
+                    if j < len(self.indexes) - 1:
+                        outputs_prob = distributions[
+                            self.indexes[j]:
+                            + self.indexes[j+1]
+                            - len(self.tokenizer.encode(self.fields[j+1]))
+                            - 1
+                        ]
+                    else:
+                        outputs_prob = distributions[
+                            self.indexes[j]:-1
+                        ]
+                    outputs_prob = [
+                        out_prob.detach().cpu().numpy() for
+                        out_prob in outputs_prob
+                    ]
+                    outputs_conf = np.max(outputs_prob, axis=1)
+                    self.confidences.append(np.mean(outputs_conf, axis=0))
+
         results_array = np.array(results)
         self.generated_sequence_ids = generated_sequence
         return results_array
