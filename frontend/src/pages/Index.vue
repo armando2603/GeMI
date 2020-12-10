@@ -322,7 +322,7 @@ export default {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
         // http://10.79.23.5:5003 or http://localhost:5000/prova2
-        this.$axios.post('http://localhost:5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
+        this.$axios.post('http://10.79.23.5:5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
           this.outputs = response.data.outputs
           this.attentionResults = response.data.attentions
           this.gpt2Computed = true
@@ -374,7 +374,7 @@ export default {
           } else {
             this.loadIcon = true
             this.limeComputed[index] = true
-            this.$axios.post('http://localhost:5003/prova', {
+            this.$axios.post('http://10.79.23.5:5003/prova', {
               inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field, exp_id: this.datasetType
             }).then((response) => {
               this.loadIcon = false
