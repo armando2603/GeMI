@@ -125,7 +125,7 @@
               <div class='my-outputs row'>
                 <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
                   <div class='q-pa-sm' v-if="!((output.value === ' None' || output.value ===' unknown') && hideNone)">
-                  <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
+                  <q-field class="output-field" label-color="grey-10" color='indigo-10' :disable="!gpt2Computed" stack-label outlined dense :bg-color='output.color' :label="output.field" >
                     <template v-slot:control>
                       <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">{{output.value}}</div>
                     </template>
@@ -181,12 +181,11 @@
   min-width: 10%
 .output-field
   width: 125px
-  height: 80px
-  max-height: 80px
+  height: 95px
 .my-outputs
   min-height: 150px
   max-width: 430px
-  max-height: 500px
+  max-height: 600px
 .toggle
   border: 1px solid #027be3
 .input-id
