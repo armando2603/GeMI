@@ -92,8 +92,8 @@
             <q-toggle
               class = 'q-pr-md text-grey-8'
               style="white-space: pre-wrap;"
-              v-model="disableNone"
-              label="Disable None:"
+              v-model="hideNone"
+              label="Hide None:"
               @input='resetInputs()'
               left-label
             />
@@ -123,12 +123,15 @@
                 <div class="text-h6 text-primary"> Output</div>
               </div>
               <div class='my-outputs row'>
-                <div class='q-pa-sm' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
-                  <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed || ((output.value===' None' || output.value===' unknown') && disableNone)" stack-label outlined :bg-color='output.color' :label="output.field" >
+                <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
+                  <div class='q-pa-sm' v-if="!((output.value === ' None' || output.value ===' unknown') && hideNone)">
+                  <q-field class="output-field" label-color="grey-10" :disable="!gpt2Computed" stack-label outlined :bg-color='output.color' :label="output.field" >
                     <template v-slot:control>
-                      <div class="self-center full-width no-outline" tabindex="0">{{output.value}}</div>
+                      <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">{{output.value}}</div>
                     </template>
+
                   </q-field>
+                  </div>
                 </div>
                 <q-dialog v-model="loadIcon" persistent transition-show="scale" transition-hide="scale">
                   <q-card style="width: 300px" class="text-primary">
@@ -177,11 +180,12 @@
   max-width: 65%
   min-width: 10%
 .output-field
-  width: 120px
-  height: 60px
+  width: 125px
+  height: 80px
+  max-height: 80px
 .my-outputs
   min-height: 150px
-  max-width: 410px
+  max-width: 430px
   max-height: 500px
 .toggle
   border: 1px solid #027be3
@@ -213,7 +217,7 @@ export default {
           value: 2
         }
       ],
-      disableNone: true,
+      hideNone: true,
       last_index: 'no_index',
       showGeoInput: true,
       datasetType: 1,
