@@ -177,7 +177,9 @@ def hola():
     outputs = [dict(
         field=elem[0],
         value=elem[1],
-        color=f'teal-{10+np.int(np.ceil(confidences[i]*4))}'
+        color=f'teal-{10+np.int(np.ceil(confidences[i]*4))}' if (
+            elem[1] != ' unknown' and elem[1] != ' None'
+            ) else 'grey-3'
         ) for i, elem in enumerate(output_split)]
     response = {'outputs': outputs, 'attentions': attention_inputs_list}
     # print(response['attentions'][0][2])
