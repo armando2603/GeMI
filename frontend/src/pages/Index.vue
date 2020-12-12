@@ -198,6 +198,7 @@
 import json from '../assets/dataset.json'
 import jsonTable from '../assets/dataset_table.json'
 import jsonTable2 from '../assets/dataset_table2.json'
+import nj from 'numjs'
 export default {
   data () {
     return {
