@@ -30,6 +30,7 @@ def hola():
     confidences = pred.confidences
     output_ids = pred.generated_sequence_ids
     output_indexes = np.array(pred.indexes)
+    input_ids = np.array(pred.tokenizer.encode(input_text))
 
     output_split = []
     for i in range(len(output_indexes)):
@@ -53,7 +54,9 @@ def hola():
         ) for i, elem in enumerate(output_split)]
     response = {
         'outputs': outputs,
-        'attentions': pred.attentions.tolist(),
+        'attentions': pred.attentions[
+            :, :, len(input_ids):, :len(input_ids)
+        ].tolist(),
         'output_indexes': output_indexes.tolist()
     }
     # print(response['attentions'][0][2])
@@ -151,14 +154,13 @@ def hola3():
         for j in range(len(output_indexes)):
             if j < len(output_indexes) - 1:
                 scores = attentions[
-                    len(input_tokens)+output_indexes[j]:len(input_tokens)
-                    + output_indexes[j+1]
+                    output_indexes[j]: output_indexes[j+1]
                     - len(pred.tokenizer.encode(output_fields[j+1]))
-                    - 1, :len(input_tokens)
+                    - 1, :
                 ]
             else:
                 scores = attentions[
-                    len(input_tokens)+output_indexes[j]:-1, :len(input_tokens)
+                    output_indexes[j]:-1, :
                 ]
             scores = np.mean(scores, axis=0)
 
