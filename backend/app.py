@@ -29,7 +29,7 @@ def hola():
     pred.predict([input_text])
     confidences = pred.confidences
     output_ids = pred.generated_sequence_ids
-    output_indexes = pred.indexes
+    output_indexes = np.array(pred.indexes)
 
     output_split = []
     for i in range(len(output_indexes)):
@@ -44,15 +44,66 @@ def hola():
             value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
             output_split.append([data['output_fields'][i], value])
 
-    attentions = pred.attentions
-    attentions_list = []
+    outputs = [dict(
+        field=elem[0],
+        value=elem[1],
+        color=f'teal-{10+np.int(np.ceil(confidences[i]*4))}' if (
+            elem[1] != ' unknown' and elem[1] != ' None'
+            ) else 'grey-3'
+        ) for i, elem in enumerate(output_split)]
+    response = {
+        'outputs': outputs,
+        'attentions': pred.attentions.tolist(),
+        'output_indexes': output_indexes.tolist()
+    }
+    # print(response['attentions'][0][2])
+    # print(jsonify(response))
+    return jsonify(response)
 
-    attentions_1 = np.mean(attentions[-1, :], axis=0)
-    attentions_list.append(attentions_1)
-    attentions_2 = np.mean(np.mean(attentions, 1), axis=0)
-    attentions_list.append(attentions_2)
-    attentions_3 = np.multiply.reduce(np.mean(attentions, 1), axis=0)
-    attentions_list.append(attentions_3)
+
+@app.route('/prova3', methods=['POST'])
+def hola3():
+    data = request.get_json()
+    attentions = np.array(data['attentions'])
+    inputs_data = data['inputs']
+    output_fields = data['output_fields']
+    output_indexes = np.array(data['output_indexes'])
+    aggregationType = data['aggregation_type']
+    selected_heads = np.array(data['selected_heads'])
+    selected_layers = np.array(data['selected_layers'])
+    input_text = ' '
+    print(selected_heads)
+    print(selected_layers)
+    print(selected_heads.shape)
+    for element in inputs_data:
+        input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
+    input_text = input_text[:-2] + '='
+    print(attentions.shape)
+    attentions_list = []
+    if aggregationType == 'custom':
+        if selected_heads.shape[0] == 0 or selected_layers.shape[0] == 0:
+            attentions_custom = np.zeros([attentions.shape[-2],attentions.shape[-1]])
+        else:
+            attentions_custom = np.mean(
+                np.mean(attentions[:, selected_heads], 1)[selected_layers], 0
+            )
+        attentions_list.append(attentions_custom)
+    else:
+        attentions_1 = np.mean(attentions[-1, :], axis=0)
+        attentions_list.append(attentions_1)
+        attentions_2 = np.mean(np.mean(attentions, 1), axis=0)
+        attentions_list.append(attentions_2)
+        attentions_3 = np.multiply.reduce(np.mean(attentions, 1), axis=0)
+        attentions_list.append(attentions_3)
+        if selected_heads.shape[0] == 0 or selected_layers.shape[0] == 0:
+            attentions_custom = np.zeros(
+                [attentions.shape[-2], attentions.shape[-1]]
+            )
+        else:
+            attentions_custom = np.mean(
+                np.mean(attentions[:, selected_heads], 1)[selected_layers], 0
+            )
+        attentions_list.append(attentions_custom)
     # attentions_4 = np.mean(np.mean(attentions, 0), 0)
     # attentions_list.append(attentions_4)
 
@@ -156,34 +207,32 @@ def hola():
                             mean_scores.append(next_score)
                         else:
                             end_word = True
-                            new_values_list.append([new_world, np.mean(mean_scores)])
+                            new_values_list.append(
+                                [new_world, np.mean(mean_scores)]
+                            )
                         i += 1
                         if i == len(values_list):
                             end_word = True
-                            new_values_list.append([new_world, np.mean(mean_scores)])
+                            new_values_list.append(
+                                [new_world, np.mean(mean_scores)]
+                            )
                 new_attention_input.append(new_values_list)
 
             attention_input = new_attention_input
             for i, input_list in enumerate(attention_input):
                 for k, value in enumerate(input_list):
                     opacity = np.int(np.ceil(value[1]*6))
-                    bg_colors = f'bg-green-{opacity}' if opacity > 1 else 'bg-white'
+                    bg_colors = f'bg-green-{opacity}' if (
+                        opacity) > 1 else 'bg-white'
                     attention_input[i][k][1] = bg_colors
                 attention_input[i] = [
-                    dict(text=elem[0], color=elem[1]) for elem in attention_input[i]
+                    dict(
+                        text=elem[0], color=elem[1]
+                        ) for elem in attention_input[i]
                 ]
             attention_inputs.append(attention_input)
         attention_inputs_list.append(attention_inputs)
-    outputs = [dict(
-        field=elem[0],
-        value=elem[1],
-        color=f'teal-{10+np.int(np.ceil(confidences[i]*4))}' if (
-            elem[1] != ' unknown' and elem[1] != ' None'
-            ) else 'grey-3'
-        ) for i, elem in enumerate(output_split)]
-    response = {'outputs': outputs, 'attentions': attention_inputs_list}
-    # print(response['attentions'][0][2])
-    # print(jsonify(response))
+    response = {'attentions_results': attention_inputs_list}
     return jsonify(response)
 
 

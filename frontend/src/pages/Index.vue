@@ -165,6 +165,27 @@
           </q-card-section>
         </q-card>
       </div>
+      <div class="q-pt-lg  selection-type" v-if='!hideHeadsLayers'>
+        <q-card>
+          <q-card-section>
+            <div class="text-h6 text-primary">Select</div>
+              <div class='row justify-evenly'>
+                <div class="column q-pa-sm">
+                  <div class="text-h8 text-grey-9">Heads:</div>
+                  <div class="q-pt-sm" v-for="(head, index) in heads_list" :key="head">
+                    <q-checkbox v-model="selected_heads" :val='head' :label="index.toString()" dense color="info" @input="visualizeNewAggregation()" />
+                  </div>
+                </div>
+                <div class="column q-pa-sm">
+                  <div class="text-h8 text-grey-9">Layers:</div>
+                  <div class="q-pt-sm" v-for="(layer, index) in layers_list" :key="layer" >
+                    <q-checkbox v-model="selected_layers" :val='layer' :label="index.toString()" dense color="deep-purple-11" @input="visualizeNewAggregation()" />
+                  </div>
+                </div>
+              </div>
+          </q-card-section>
+        </q-card>
+      </div>
       </div>
     </div>
   </div>
@@ -198,10 +219,17 @@
 import json from '../assets/dataset.json'
 import jsonTable from '../assets/dataset_table.json'
 import jsonTable2 from '../assets/dataset_table2.json'
-import nj from 'numjs'
 export default {
   data () {
     return {
+      hideHeadsLayers: true,
+      attentions: [],
+      // http://10.79.23.5:5003 or http://localhost:5000/prova2
+      backendIP: 'http://localhost',
+      heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      selected_heads: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      selected_layers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       aggregationType: 1,
       options: [
         {
@@ -215,6 +243,10 @@ export default {
         {
           label: 'Type 3 (multiply layers)',
           value: 2
+        },
+        {
+          label: 'Type 4 (custom)',
+          value: 3
         }
       ],
       hideNone: true,
@@ -325,10 +357,21 @@ export default {
     callModel () {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
-        // http://10.79.23.5:5003 or http://localhost:5000/prova2
-        this.$axios.post('http://10.79.23.5:5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
+        this.$axios.post(this.backendIP + ':5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
           this.outputs = response.data.outputs
-          this.attentionResults = response.data.attentions
+          this.attentions = response.data.attentions
+          this.output_indexes = response.data.output_indexes
+          this.$axios.post(this.backendIP + ':5003/prova3', {
+            inputs: this.inputs_api,
+            output_fields: this.output_fields[this.datasetType],
+            attentions: this.attentions,
+            output_indexes: this.output_indexes,
+            aggregation_type: this.aggregationType,
+            selected_heads: this.selected_heads,
+            selected_layers: this.selected_layers
+          }).then((response) => {
+            this.attentionResults = response.data.attentions_results
+          }).catch(error => (error.message))
           this.gpt2Computed = true
           this.loadGpt2 = false
           this.disableGpt2button = true
@@ -378,7 +421,7 @@ export default {
           } else {
             this.loadIcon = true
             this.limeComputed[index] = true
-            this.$axios.post('http://10.79.23.5:5003/prova', {
+            this.$axios.post(this.backendIP + ':5003/prova', {
               inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field, exp_id: this.datasetType
             }).then((response) => {
               this.loadIcon = false
@@ -418,15 +461,20 @@ export default {
           { field: 'Description', values: [{ text: '', color: 'bg-white' }] },
           { field: 'Characteristics', values: [{ text: '', color: 'bg-white' }] }
         ]
+
         this.inputs_api = this.inputs
         this.showGeoInput = true
         this.columns = this.columns1
         this.dataset_json = this.dataset_json_1
+        this.layers_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        this.selected_layers = this.selected_layers.concat([6, 7, 8, 9, 10, 11])
       }
       if (this.datasetType === 2) {
         this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
         this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
         this.limeResults = []
+        this.layers_list = [0, 1, 2, 3, 4, 5]
+        this.selected_layers = this.selected_layers.slice(0, 6)
         for (const x of Array(this.output_fields[this.datasetType].length).keys()) {
           this.limeResults[x] = [[], [], []]
         }
@@ -441,10 +489,31 @@ export default {
     },
     visualizeNewAggregation () {
       if (this.last_index !== 'no_index') {
-        for (const i of Array(this.inputs_api.length).keys()) {
-          this.inputs[i].values = this.attentionResults[this.aggregationType][this.last_index][i]
+        if (this.aggregationType === 3) {
+          this.$axios.post(this.backendIP + ':5003/prova3', {
+            inputs: this.inputs_api,
+            output_fields: this.output_fields[this.datasetType],
+            attentions: this.attentions,
+            output_indexes: this.output_indexes,
+            aggregation_type: 'custom',
+            selected_heads: this.selected_heads,
+            selected_layers: this.selected_layers
+          }).then((response) => {
+            for (const i of Array(this.inputs_api.length).keys()) {
+              this.inputs[i].values = response.data.attentions_results[0][this.last_index][i]
+              this.attentionResults[this.aggregationType][this.last_index][i] = response.data.attentions_results[0][this.last_index][i]
+            }
+          }).catch(error => (error.message))
+          this.hideHeadsLayers = false
+        } else {
+          for (const i of Array(this.inputs_api.length).keys()) {
+            this.inputs[i].values = this.attentionResults[this.aggregationType][this.last_index][i]
+          }
         }
       } else {
+        if (this.aggregationType === 3) {
+          this.hideHeadsLayers = false
+        }
         for (const i of Array(this.inputs_api.length).keys()) {
           this.inputs[i].values = this.this_input_api[i].values
         }
