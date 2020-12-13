@@ -225,7 +225,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5000/prova2
-      backendIP: 'http://localhost',
+      backendIP: 'http://10.79.23.5',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
