@@ -74,6 +74,8 @@ def hola3():
     aggregationType = data['aggregation_type']
     selected_heads = np.array(data['selected_heads'])
     selected_layers = np.array(data['selected_layers'])
+    heads_op = data['headsCustomOp']
+    layers_op = data['layersCustomOp']
     input_text = ' '
     print(selected_heads)
     print(selected_layers)
@@ -85,11 +87,28 @@ def hola3():
     attentions_list = []
     if aggregationType == 'custom':
         if selected_heads.shape[0] == 0 or selected_layers.shape[0] == 0:
-            attentions_custom = np.zeros([attentions.shape[-2],attentions.shape[-1]])
+            attentions_custom = np.zeros([attentions.shape[-2], attentions.shape[-1]])
         else:
-            attentions_custom = np.mean(
-                np.mean(attentions[:, selected_heads], 1)[selected_layers], 0
-            )
+            assert heads_op in ['avg', 'mul'], 'heads_op must be "mul" or "avg"'
+            assert layers_op in ['avg', 'mul'], 'layer ops must be "mul" or "avg"'
+
+            if heads_op == 'avg':
+                attentions_custom = np.mean(attentions[:, selected_heads], 1)
+                print('heads avg')
+            else:
+                attentions_custom = np.multiply.reduce(
+                    attentions[:, selected_heads], 1
+                )
+                print('heads mul')
+
+            if layers_op == 'avg':
+                attentions_custom = np.mean(attentions_custom[selected_layers], 0)
+                print('layer avg')
+            else:
+                attentions_custom = np.multiply.reduce(
+                    attentions_custom[selected_layers], 0
+                )
+                print('layer mul')
         attentions_list.append(attentions_custom)
     else:
         attentions_1 = np.mean(attentions[-1, :], axis=0)

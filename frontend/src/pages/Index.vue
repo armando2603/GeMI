@@ -112,7 +112,6 @@
             :options="[
               {label: 'Attention', value: 'attention'},
               {label: 'Lime', value: 'lime'}
-
             ]"
           />
         </div>
@@ -169,16 +168,54 @@
         <q-card>
           <q-card-section>
             <div class="text-h6 text-primary">Select</div>
-              <div class='row justify-evenly'>
+              <div class='row justify-evenly items-center'>
                 <div class="column q-pa-sm">
+                  <div class='items-center column'>
                   <div class="text-h8 text-grey-9">Heads:</div>
-                  <div class="q-pt-sm" v-for="(head, index) in heads_list" :key="head">
+                  <q-btn-toggle
+                    v-model="headsCustomOp"
+                    class="toggle"
+                    @input="visualizeNewAggregation()"
+                    no-caps
+                    rounded
+                    unelevated
+                    spread
+                    dense
+                    toggle-color="primary"
+                    color="white"
+                    text-color="primary"
+                    :options="[
+                      {label: 'mul', value: 'mul'},
+                      {label: 'avg', value: 'avg'}
+                    ]"
+                  />
+                  </div>
+                  <div class="q-pt-sm q-pl-md" v-for="(head, index) in heads_list" :key="head">
                     <q-checkbox v-model="selected_heads" :val='head' :label="index.toString()" dense color="info" @input="visualizeNewAggregation()" />
                   </div>
                 </div>
                 <div class="column q-pa-sm">
+                  <div class="column items-center">
                   <div class="text-h8 text-grey-9">Layers:</div>
-                  <div class="q-pt-sm" v-for="(layer, index) in layers_list" :key="layer" >
+                  <q-btn-toggle
+                    v-model="layersCustomOp"
+                    class="toggle"
+                    @input="visualizeNewAggregation()"
+                    no-caps
+                    rounded
+                    unelevated
+                    spread
+                    dense
+                    toggle-color="primary"
+                    color="white"
+                    text-color="primary"
+                    :options="[
+                      {label: 'mul', value: 'mul'},
+                      {label: 'avg', value: 'avg'}
+                    ]"
+                  />
+                  </div>
+                  <div class="q-pt-sm q-pl-md" v-for="(layer, index) in layers_list" :key="layer" >
                     <q-checkbox v-model="selected_layers" :val='layer' :label="index.toString()" dense color="deep-purple-11" @input="visualizeNewAggregation()" />
                   </div>
                 </div>
@@ -222,14 +259,16 @@ import jsonTable2 from '../assets/dataset_table2.json'
 export default {
   data () {
     return {
+      layersCustomOp: 'avg',
+      headsCustomOp: 'avg',
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5000/prova2
       backendIP: 'http://10.79.23.5',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-      selected_heads: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-      selected_layers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      selected_heads: [],
+      selected_layers: [],
       aggregationType: 1,
       options: [
         {
@@ -368,7 +407,9 @@ export default {
             output_indexes: this.output_indexes,
             aggregation_type: this.aggregationType,
             selected_heads: this.selected_heads,
-            selected_layers: this.selected_layers
+            selected_layers: this.selected_layers,
+            headsCustomOp: this.headsCustomOp,
+            layersCustomOp: this.layersCustomOp
           }).then((response) => {
             this.attentionResults = response.data.attentions_results
           }).catch(error => (error.message))
@@ -434,10 +475,15 @@ export default {
           }
         }
         if (this.typeInterpreter === 'attention') {
-          for (const i of Array(this.inputs_api.length).keys()) {
-            this.inputs[i].values = this.attentionResults[this.aggregationType][index][i]
+          if (this.aggregationType === 3) {
+            this.last_index = index
+            this.visualizeNewAggregation()
+          } else {
+            for (const i of Array(this.inputs_api.length).keys()) {
+              this.inputs[i].values = this.attentionResults[this.aggregationType][index][i]
+            }
+            this.last_index = index
           }
-          this.last_index = index
         }
       }
     },
@@ -467,14 +513,13 @@ export default {
         this.columns = this.columns1
         this.dataset_json = this.dataset_json_1
         this.layers_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-        this.selected_layers = this.selected_layers.concat([6, 7, 8, 9, 10, 11])
       }
       if (this.datasetType === 2) {
         this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
         this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
         this.limeResults = []
         this.layers_list = [0, 1, 2, 3, 4, 5]
-        this.selected_layers = this.selected_layers.slice(0, 6)
+        this.selected_layers = []
         for (const x of Array(this.output_fields[this.datasetType].length).keys()) {
           this.limeResults[x] = [[], [], []]
         }
@@ -497,7 +542,9 @@ export default {
             output_indexes: this.output_indexes,
             aggregation_type: 'custom',
             selected_heads: this.selected_heads,
-            selected_layers: this.selected_layers
+            selected_layers: this.selected_layers,
+            headsCustomOp: this.headsCustomOp,
+            layersCustomOp: this.layersCustomOp
           }).then((response) => {
             for (const i of Array(this.inputs_api.length).keys()) {
               this.inputs[i].values = response.data.attentions_results[0][this.last_index][i]
