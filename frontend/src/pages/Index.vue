@@ -111,6 +111,7 @@
             text-color="primary"
             :options="[
               {label: 'Attention', value: 'attention'},
+              {label: 'Gradient', value: 'gradient'},
               {label: 'Lime', value: 'lime'}
             ]"
           />
@@ -264,7 +265,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5000/prova2
-      backendIP: 'http://10.79.23.5',
+      backendIP: 'http://localhost',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -363,6 +364,7 @@ export default {
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
       attentionResults: [],
+      gradientResults: [],
       outputs: [],
       output_fields: {
         1: [
@@ -396,11 +398,12 @@ export default {
     callModel () {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
-        this.$axios.post(this.backendIP + ':5003/prova2', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
+        this.$axios.post(this.backendIP + ':5003/CallModel', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
           this.outputs = response.data.outputs
           this.attentions = response.data.attentions
           this.output_indexes = response.data.output_indexes
-          this.$axios.post(this.backendIP + ':5003/prova3', {
+          this.gradientResults = response.data.gradient
+          this.$axios.post(this.backendIP + ':5003/AttentionParse', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
             attentions: this.attentions,
@@ -462,7 +465,7 @@ export default {
           } else {
             this.loadIcon = true
             this.limeComputed[index] = true
-            this.$axios.post(this.backendIP + ':5003/prova', {
+            this.$axios.post(this.backendIP + ':5003/Lime', {
               inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field, exp_id: this.datasetType
             }).then((response) => {
               this.loadIcon = false
@@ -484,6 +487,12 @@ export default {
             }
             this.last_index = index
           }
+        }
+        if (this.typeInterpreter === 'gradient') {
+          for (const i of Array(this.inputs_api.length).keys()) {
+            this.inputs[i].values = this.gradientResults[index][i]
+          }
+          this.last_index = index
         }
       }
     },
@@ -535,7 +544,7 @@ export default {
     visualizeNewAggregation () {
       if (this.last_index !== 'no_index') {
         if (this.aggregationType === 3) {
-          this.$axios.post(this.backendIP + ':5003/prova3', {
+          this.$axios.post(this.backendIP + ':5003/AttentionParse', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
             attentions: this.attentions,
