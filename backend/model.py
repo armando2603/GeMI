@@ -220,7 +220,7 @@ class Predictor:
 
         one_hot_tensor = torch.zeros(
             len(input_ids), vocab_size
-        ).scatter_(1, input_ids.unsqueeze(1), 1.).to(self.device)
+        ).to(self.device).scatter_(1, input_ids.unsqueeze(1), 1.)
 
         token_ids_tensor_one_hot = one_hot_tensor.clone().requires_grad_(True)
         # token_ids_tensor_one_hot.requires_grad_(True)
