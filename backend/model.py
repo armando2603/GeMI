@@ -123,7 +123,9 @@ class Predictor:
 
                 next_token_logits = outputs.logits[:, -1, :]
                 predicted_token_tensor = torch.argmax(next_token_logits)
-                distributions.append(F.softmax(next_token_logits[0], 0))
+                distributions.append(
+                    F.softmax(next_token_logits[0], 0).detach().cpu().numpy()
+                )
                 predicted_token = predicted_token_tensor.item()
                 prediction_logit = outputs.logits[
                     0,
@@ -184,7 +186,7 @@ class Predictor:
                 # print(self.tokenizer.decode([generated_sequence[index]]))
                 # print(index)
                 # print(len(distributions))
-                results.append(distributions[index].detach().cpu().numpy())
+                results.append(distributions[index])
 
             self.confidences = []
             for j in range(len(self.indexes)):
@@ -200,7 +202,7 @@ class Predictor:
                         self.indexes[j]:-1
                     ]
                 outputs_prob = [
-                    out_prob.detach().cpu().numpy() for
+                    out_prob for
                     out_prob in outputs_prob
                 ]
                 outputs_conf = np.max(outputs_prob, axis=1)
