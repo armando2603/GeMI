@@ -252,7 +252,6 @@ class Predictor:
         grad_explain = []
         tokenof_ = self.tokenizer.encode("_")
         input_length = input_ids.shape[1]
-        print(f'input lenght {input_length}')
         generated_sequence = []
         predicted_token = 0
 
@@ -285,7 +284,5 @@ class Predictor:
                 dim=-1
             )
             generated_sequence.append(predicted_token)
-            print(self.tokenizer.decode(generated_sequence))
-        print(grad_explain[-1])
         print(self.tokenizer.decode(generated_sequence))
         return np.array(grad_explain)
