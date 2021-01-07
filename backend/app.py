@@ -25,7 +25,7 @@ def CallModel():
     pred.fields = [' ' + field for field in output_fields]
     output_fields = [' ' + field for field in output_fields]
     pred.model_id = data['exp_id']
-    # print(input_text)
+    print(input_text)
     pred.predict([input_text])
     confidences = pred.confidences
     output_ids = pred.generated_sequence_ids
@@ -54,8 +54,7 @@ def CallModel():
         ) for i, elem in enumerate(output_split)]
 
     # gradient saliency
-    # gradient_score = pred.grad_explain
-    gradient_score = pred.predict2([input_text])
+    gradient_score = pred.grad_explain
 
     input_fields = [' ' + element['field'] for element in inputs_data]
     values_indexes = []
@@ -120,8 +119,6 @@ def CallModel():
                 ])
             else:
                 filtered_scores += list(scores[values_indexes[i]:-1])
-        print('filtered scores')
-        print(filtered_scores)
         max_scores = np.max(filtered_scores)
         max_scores = 1 if max_scores == 0.0 else max_scores
         scores = scores / max_scores

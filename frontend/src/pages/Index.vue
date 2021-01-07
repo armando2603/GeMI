@@ -399,10 +399,10 @@ export default {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
         this.$axios.post(this.backendIP + ':5003/CallModel', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
-          this.outputs = response.data.outputs
           this.attentions = response.data.attentions
-          this.output_indexes = response.data.output_indexes
+          this.outputs = response.data.outputs
           this.gradientResults = response.data.gradient
+          this.output_indexes = response.data.output_indexes
           this.$axios.post(this.backendIP + ':5003/AttentionParse', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
@@ -415,10 +415,10 @@ export default {
             layersCustomOp: this.layersCustomOp
           }).then((response) => {
             this.attentionResults = response.data.attentions_results
+            this.gpt2Computed = true
+            this.loadGpt2 = false
+            this.disableGpt2button = true
           }).catch(error => (error.message))
-          this.gpt2Computed = true
-          this.loadGpt2 = false
-          this.disableGpt2button = true
         }).catch(error => (error.message))
       }
     },
