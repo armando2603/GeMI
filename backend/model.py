@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import numpy as np
 import torch
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
@@ -39,58 +40,45 @@ class Predictor:
         )
         self.generated_sequence = None
         self.MAX_LEN = 400
-        self.model = None
-        self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'distilgpt2'
-        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-
-        # Load pre-trained model (weights)
-        self.model_1 = GPT2LMHeadModel.from_pretrained(
-            'gpt2',
-            output_attentions=True,
-            return_dict=True
-        )
-        self.model_2 = GPT2LMHeadModel.from_pretrained(
+        self.model = GPT2LMHeadModel.from_pretrained(
             model_name,
             output_attentions=True,
             return_dict=True
         )
-        self.tokenizer.add_special_tokens({'pad_token': '<pad>'})
-        self.model_1.resize_token_embeddings(len(self.tokenizer))
-        self.model_1.load_state_dict(
-            torch.load(
-                'Trained_Model.pth',
-                map_location=torch.device(self.device)
-            )
+        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+        self.tokenizer.add_special_tokens(
+            {
+                'bos_token': '<BOS>',
+                'eos_token': '<EOS>',
+                'pad_token': '<PAD>'
+            }
         )
-        self.model_2.resize_token_embeddings(len(self.tokenizer))
-        self.model_2.load_state_dict(
-            torch.load(
-                'Trained_Model_2.pth',
-                map_location=torch.device(self.device)
-            )
-        )
+        self.model.resize_token_embeddings(len(self.tokenizer))
 
-        # Set the model in evaluation mode to deactivate the DropOut modules
-        # This is IMPORTANT to have reproducible results during evaluation!
-        self.model_1.eval()
-        self.model_1.to(self.device)
+        checkpoint = torch.load('checkpoint-epoch=42-val_loss=0.63.pth')
+        state_dict = checkpoint['state_dict']
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            if k[:6] == 'model.':
+                name = k[6:]
+            else:
+                name = k
+            new_state_dict[name] = v
+        self.model.load_state_dict(new_state_dict)
 
-        self.model_2.eval()
-        self.model_2.to(self.device)
+        self.model.eval()
+        self.model.to(self.device)
 
     # this is used for lime and return the distributions of the output
     def predict(self, list_input_text):
-        assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
-        if self.model_id == 1:
-            self.model = self.model_1
-        if self.model_id == 2:
-            self.model = self.model_2
         list_idx = []
         for i, input_text in enumerate(list_input_text):
             if input_text[-1] != '=' and input_text[-1] != ' ':
                 input_text += ' ='
+
+            input_text = '<BOS> ' + input_text + '<EOS>'
             indexed_tokens = self.tokenizer.encode(
                 input_text,
                 truncation=True,
@@ -153,6 +141,7 @@ class Predictor:
             print(self.tokenizer.decode(generated_sequence))
 
             self.indexes = []
+            self.fields[0] = self.fields[0][1:]
             for field in self.fields:
                 field_tokens = np.array(self.tokenizer.encode(field))
                 generated_sequence = np.array(generated_sequence)

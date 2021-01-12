@@ -148,7 +148,7 @@ def CallModel():
                     next_word = values_list[i][0]
                     next_score = values_list[i][1]
                     if (next_word[0] !=
-                            (' ' or '-' or ':' or ';' or '(' or ')')):
+                            (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
                         new_world += next_word
                         mean_scores.append(next_score)
                     else:
@@ -348,7 +348,7 @@ def AttentionParse():
                         next_word = values_list[i][0]
                         next_score = values_list[i][1]
                         if (next_word[0] !=
-                                (' ' or '-' or ':' or ';' or '(' or ')')):
+                                (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
                             new_world += next_word
                             mean_scores.append(next_score)
                         else:
