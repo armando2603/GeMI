@@ -89,7 +89,6 @@ class Predictor:
             list_idx.append(tokens_tensor)
         results = []
         grad_explain = []
-        tokenof_ = self.tokenizer.encode("_")
         # Predict all tokens
         for input_ids in tqdm(list_idx, position=0, leave=True):
             input_ids = input_ids.view(1, -1)
@@ -100,8 +99,7 @@ class Predictor:
             distributions = []
             predicted_token = 0
 
-            while (predicted_token != tokenof_ and
-                    predicted_token != self.tokenizer.pad_token_id and
+            while (predicted_token != self.tokenizer.pad_token_id and
                     len(generated_sequence) < 260):
 
                 inputs_embeds, token_ids_tensor_one_hot = \
@@ -179,23 +177,27 @@ class Predictor:
 
             self.confidences = []
             for j in range(len(self.indexes)):
-                if j < len(self.indexes) - 1:
-                    outputs_prob = distributions[
-                        self.indexes[j]:
-                        + self.indexes[j+1]
-                        - len(self.tokenizer.encode(self.fields[j+1]))
-                        - 1
-                    ]
-                else:
-                    outputs_prob = distributions[
-                        self.indexes[j]:-1
-                    ]
-                outputs_prob = [
-                    out_prob for
-                    out_prob in outputs_prob
-                ]
-                outputs_conf = np.max(outputs_prob, axis=1)
-                self.confidences.append(np.mean(outputs_conf, axis=0))
+                out_prob = distributions[self.indexes[j]]
+                self.confidences.append(np.max(out_prob))
+
+            # for j in range(len(self.indexes)):
+            #     if j < len(self.indexes) - 1:
+            #         outputs_prob = distributions[
+            #             self.indexes[j]:
+            #             + self.indexes[j+1]
+            #             - len(self.tokenizer.encode(self.fields[j+1]))
+            #             - 1
+            #         ]
+            #     else:
+            #         outputs_prob = distributions[
+            #             self.indexes[j]:-1
+            #         ]
+            #     outputs_prob = [
+            #         out_prob for
+            #         out_prob in outputs_prob
+            #     ]
+            #     outputs_conf = np.max(outputs_prob, axis=1)
+            #     self.confidences.append(np.mean(outputs_conf, axis=0))
 
         results_array = np.array(results)
         self.generated_sequence_ids = generated_sequence

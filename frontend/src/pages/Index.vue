@@ -110,8 +110,8 @@
             color="white"
             text-color="primary"
             :options="[
-              {label: 'Attention', value: 'attention'},
               {label: 'Gradient', value: 'gradient'},
+              {label: 'Attention', value: 'attention'},
               {label: 'Lime', value: 'lime'}
             ]"
           />
@@ -293,7 +293,7 @@ export default {
       last_index: 'no_index',
       showGeoInput: true,
       datasetType: 1,
-      typeInterpreter: 'attention',
+      typeInterpreter: 'gradient',
       disableGpt2button: true,
       loadGpt2: false,
       loadIcon: false,
