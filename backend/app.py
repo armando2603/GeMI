@@ -3,6 +3,7 @@ from flask_cors import CORS
 from model import Predictor
 from forked_lime.lime.lime_text import LimeTextExplainer
 import numpy as np
+import json
 
 # configuration
 DEBUG = True
@@ -17,16 +18,22 @@ pred = Predictor()
 def CallModel():
     data = request.get_json()
     inputs_data = data['inputs']
-    input_text = ' '
-    for element in inputs_data:
-        input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
-    input_text = input_text[:-2] + '='
+    # for element in inputs_data:
+    #     input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
+    # input_text = input_text[:-2] + '='
+    # if data['exp_id'] == 1:
+    #     for element in inputs_data:
+    #         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
+    #         input_text = input_text[:-2] + '='
+    # elif data['exp_id'] == 2:
+    input_text = inputs_data[0]['values'][0]['text'] + ' = '
     output_fields = data['output_fields']
     pred.fields = [' ' + field for field in output_fields]
     output_fields = [' ' + field for field in output_fields]
     pred.model_id = data['exp_id']
-    print(input_text)
+    # print(input_text)
     pred.predict([input_text])
+    input_text = input_text = inputs_data[0]['values'][0]['text']
     confidences = pred.confidences
     output_ids = pred.generated_sequence_ids
     output_indexes = np.array(pred.indexes)
@@ -34,57 +41,62 @@ def CallModel():
 
     output_split = []
     for i in range(len(output_indexes)):
-        if i < len(output_indexes) - 1:
-            value = pred.tokenizer.decode(output_ids[
-                output_indexes[i]:output_indexes[i+1]-len(
-                    pred.tokenizer.encode(output_fields[i+1])
-                )-2
-            ])
-            output_split.append([data['output_fields'][i], value])
+        if output_indexes[i] == -1:
+            output_split.append([data['output_fields'][i], '<missing>'])
         else:
-            value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
-            output_split.append([data['output_fields'][i], value])
+            if i < len(output_indexes) - 1:
+                value = pred.tokenizer.decode(output_ids[
+                    output_indexes[i]:output_indexes[i+1]-len(
+                        pred.tokenizer.encode(output_fields[i+1])
+                    )-2
+                ])
+                output_split.append([data['output_fields'][i], value])
+            else:
+                value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
+                output_split.append([data['output_fields'][i], value])
+
+    colors = ['red-3'] * 15 + ['orange-3'] * 8 + ['green-3'] * 3
 
     outputs = [dict(
         field=elem[0],
         value=elem[1],
-        color=f'teal-{10+np.int(np.ceil(confidences[i]*4))}' if (
-            elem[1] != ' unknown' and elem[1] != ' None'
-            ) else 'grey-3'
+        color=colors[np.int(np.ceil(confidences[i]*25))] if (
+            elem[1] != ' unknown' and elem[1] != ' None' and elem[1] != '<missing>'
+            ) else 'grey-3',
+        confidence=np.round(np.float64(confidences[i]), 2)
         ) for i, elem in enumerate(output_split)]
-
     # gradient saliency
     gradient_score = pred.grad_explain
 
-    input_fields = [' ' + element['field'] for element in inputs_data]
-    values_indexes = []
-    for field in input_fields:
-        field_ids = np.array(pred.tokenizer.encode(field))
-        input_ids = np.array(pred.tokenizer.encode(input_text))
-        indexes = np.ones(
-            len(np.where(
-                input_ids == field_ids[0])[0])
-        ) * -1
-        for i, field_id in enumerate(field_ids):
-            current_indexes = np.where(
-                input_ids == field_id)[0]
-            for n, index in enumerate(indexes):
-                if i == 0:
-                    indexes = current_indexes
-                else:
-                    for current_index in current_indexes:
-                        if index + 1 == current_index:
-                            indexes[n] = current_index
-                            break
-                        else:
-                            indexes[n] = -1
+    # input_fields = [' ' + element['field'] for element in inputs_data]
+    # values_indexes = []
+    # for field in input_fields:
+    #     field_ids = np.array(pred.tokenizer.encode(field))
+    #     input_ids = np.array(pred.tokenizer.encode(input_text))
+    #     indexes = np.ones(
+    #         len(np.where(
+    #             input_ids == field_ids[0])[0])
+    #     ) * -1
+    #     for i, field_id in enumerate(field_ids):
+    #         current_indexes = np.where(
+    #             input_ids == field_id)[0]
+    #         for n, index in enumerate(indexes):
+    #             if i == 0:
+    #                 indexes = current_indexes
+    #             else:
+    #                 for current_index in current_indexes:
+    #                     if index + 1 == current_index:
+    #                         indexes[n] = current_index
+    #                         break
+    #                     else:
+    #                         indexes[n] = -1
 
-        if (len(np.where(indexes != -1)[0]) == 0):
-            index = -1
-        else:
-            index = indexes[np.where(indexes != 1)[0][0]] + 2
+    #     if (len(np.where(indexes != -1)[0]) == 0):
+    #         index = -1
+    #     else:
+    #         index = indexes[np.where(indexes != 1)[0][0]] + 2
 
-        values_indexes.append(index)
+    #     values_indexes.append(index)
 
     input_tokens = pred.tokenizer.convert_ids_to_tokens(input_ids)
     input_tokens = list(
@@ -108,67 +120,66 @@ def CallModel():
             ]
         scores = np.mean(scores, axis=0)
 
-        filtered_scores = []
+        # filtered_scores = []
 
-        for i in range(len(values_indexes)):
-            if i < len(values_indexes) - 1:
-                filtered_scores += list(scores[
-                    values_indexes[i]:values_indexes[i+1]-len(
-                        pred.tokenizer.encode(output_fields[i+1])
-                    )-1
-                ])
-            else:
-                filtered_scores += list(scores[values_indexes[i]:-1])
-        max_scores = np.max(filtered_scores)
+        # for i in range(len(values_indexes)):
+        #     if i < len(values_indexes) - 1:
+        #         filtered_scores += list(scores[
+        #             values_indexes[i]:values_indexes[i+1]-len(
+        #                 pred.tokenizer.encode(output_fields[i+1])
+        #             )-1
+        #         ])
+        #     else:
+        #         filtered_scores += list(scores[values_indexes[i]:-1])
+        scores = scores[:len(input_tokens)]
+        max_scores = np.max(scores)
         max_scores = 1 if max_scores == 0.0 else max_scores
         scores = scores / max_scores
-
         input_list = list(zip(input_tokens, scores))
 
-        gradient_input = []
+        # for i in range(len(values_indexes)):
+        #     if i < len(values_indexes) - 1:
+        #         gradient_input.append(input_list[
+        #             values_indexes[i]:values_indexes[i+1]-len(
+        #                 pred.tokenizer.encode(output_fields[i+1])
+        #             )-1
+        #         ])
+        #     else:
+        #         gradient_input.append(input_list[values_indexes[i]:-1])
+        word_list = []
+        values_list = input_list
+        new_values_list = []
+        i = 1
+        while i < len(values_list):
+            end_word = False
+            mean_scores = [values_list[i-1][1]]
+            new_world = values_list[i-1][0]
+            while end_word is False:
+                next_word = values_list[i][0]
+                next_score = values_list[i][1]
+                if (next_word[0] !=
+                        (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
+                    new_world += next_word
+                    mean_scores.append(next_score)
+                else:
+                    end_word = True
+                    new_values_list.append(
+                        [new_world, np.mean(mean_scores)]
+                    )
+                i += 1
+                if i == len(values_list):
+                    end_word = True
+                    new_values_list.append(
+                        [new_world, np.mean(mean_scores)]
+                    )
+        word_list.append(new_values_list)
 
-        for i in range(len(values_indexes)):
-            if i < len(values_indexes) - 1:
-                gradient_input.append(input_list[
-                    values_indexes[i]:values_indexes[i+1]-len(
-                        pred.tokenizer.encode(output_fields[i+1])
-                    )-1
-                ])
-            else:
-                gradient_input.append(input_list[values_indexes[i]:-1])
-        new_gradient_input = []
-        for values_list in gradient_input:
-            new_values_list = []
-            i = 1
-            while i < len(values_list):
-                end_word = False
-                mean_scores = [values_list[i-1][1]]
-                new_world = values_list[i-1][0]
-                while end_word is False:
-                    next_word = values_list[i][0]
-                    next_score = values_list[i][1]
-                    if (next_word[0] !=
-                            (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
-                        new_world += next_word
-                        mean_scores.append(next_score)
-                    else:
-                        end_word = True
-                        new_values_list.append(
-                            [new_world, np.mean(mean_scores)]
-                        )
-                    i += 1
-                    if i == len(values_list):
-                        end_word = True
-                        new_values_list.append(
-                            [new_world, np.mean(mean_scores)]
-                        )
-            new_gradient_input.append(new_values_list)
-
-        gradient_input = new_gradient_input
+        gradient_input = word_list
         for i, input_list in enumerate(gradient_input):
             for k, value in enumerate(input_list):
-                opacity = np.int(np.ceil(value[1]*6))
-                bg_colors = f'bg-green-{opacity}' if (
+                opacity = np.int(np.ceil(value[1]*5)) if\
+                    output_indexes[j] != -1 else 0
+                bg_colors = f'bg-blue-{opacity}' if (
                     opacity) > 1 else 'bg-white'
                 gradient_input[i][k][1] = bg_colors
             gradient_input[i] = [
@@ -177,12 +188,11 @@ def CallModel():
                     ) for elem in gradient_input[i]
             ]
         gradient_inputs.append(gradient_input)
-
     response = {
         'outputs': outputs,
-        'attentions': pred.attentions[
+        'attentions': np.round(pred.attentions[
             :, :, len(input_ids):, :len(input_ids)
-        ].tolist(),
+        ], 6).tolist(),
         'output_indexes': output_indexes.tolist(),
         'gradient': gradient_inputs
     }
@@ -203,10 +213,7 @@ def AttentionParse():
     selected_layers = np.array(data['selected_layers'])
     heads_op = data['headsCustomOp']
     layers_op = data['layersCustomOp']
-    input_text = ' '
-    for element in inputs_data:
-        input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
-    input_text = input_text[:-2] + '='
+    input_text = inputs_data[0]['values'][0]['text']
     attentions_list = []
     if aggregationType == 'custom':
         if selected_heads.shape[0] == 0 or selected_layers.shape[0] == 0:
@@ -253,36 +260,36 @@ def AttentionParse():
         attentions_list.append(attentions_custom)
     # attentions_4 = np.mean(np.mean(attentions, 0), 0)
     # attentions_list.append(attentions_4)
+    input_ids = np.array(pred.tokenizer.encode(input_text))
+    # input_fields = [' ' + element['field'] for element in inputs_data]
+    # values_indexes = []
+    # for field in input_fields:
+    #     field_ids = np.array(pred.tokenizer.encode(field))
+    #     input_ids = np.array(pred.tokenizer.encode(input_text))
+    #     indexes = np.ones(
+    #         len(np.where(
+    #             input_ids == field_ids[0])[0])
+    #     ) * -1
+    #     for i, field_id in enumerate(field_ids):
+    #         current_indexes = np.where(
+    #             input_ids == field_id)[0]
+    #         for n, index in enumerate(indexes):
+    #             if i == 0:
+    #                 indexes = current_indexes
+    #             else:
+    #                 for current_index in current_indexes:
+    #                     if index + 1 == current_index:
+    #                         indexes[n] = current_index
+    #                         break
+    #                     else:
+    #                         indexes[n] = -1
 
-    input_fields = [' ' + element['field'] for element in inputs_data]
-    values_indexes = []
-    for field in input_fields:
-        field_ids = np.array(pred.tokenizer.encode(field))
-        input_ids = np.array(pred.tokenizer.encode(input_text))
-        indexes = np.ones(
-            len(np.where(
-                input_ids == field_ids[0])[0])
-        ) * -1
-        for i, field_id in enumerate(field_ids):
-            current_indexes = np.where(
-                input_ids == field_id)[0]
-            for n, index in enumerate(indexes):
-                if i == 0:
-                    indexes = current_indexes
-                else:
-                    for current_index in current_indexes:
-                        if index + 1 == current_index:
-                            indexes[n] = current_index
-                            break
-                        else:
-                            indexes[n] = -1
+    #     if (len(np.where(indexes != -1)[0]) == 0):
+    #         index = -1
+    #     else:
+    #         index = indexes[np.where(indexes != 1)[0][0]] + 2
 
-        if (len(np.where(indexes != -1)[0]) == 0):
-            index = -1
-        else:
-            index = indexes[np.where(indexes != 1)[0][0]] + 2
-
-        values_indexes.append(index)
+    #     values_indexes.append(index)
 
     # print(values_indexes)
     input_tokens = pred.tokenizer.convert_ids_to_tokens(input_ids)
@@ -308,67 +315,69 @@ def AttentionParse():
                 ]
             scores = np.mean(scores, axis=0)
 
-            filtered_scores = []
+    #         filtered_scores = []
 
-            for i in range(len(values_indexes)):
-                if i < len(values_indexes) - 1:
-                    filtered_scores += list(scores[
-                        values_indexes[i]:values_indexes[i+1]-len(
-                            pred.tokenizer.encode(output_fields[i+1])
-                        )-1
-                    ])
-                else:
-                    filtered_scores += list(scores[values_indexes[i]:-1])
-            max_scores = np.max(filtered_scores)
+    #         for i in range(len(values_indexes)):
+    #             if i < len(values_indexes) - 1:
+    #                 filtered_scores += list(scores[
+    #                     values_indexes[i]:values_indexes[i+1]-len(
+    #                         pred.tokenizer.encode(output_fields[i+1])
+    #                     )-1
+    #                 ])
+    #             else:
+    #                 filtered_scores += list(scores[values_indexes[i]:-1])
+            scores[0] = 0
+            max_scores = np.max(scores)
             max_scores = 1 if max_scores == 0.0 else max_scores
             scores = scores / max_scores
+            # print(f'{output_fields[j]}')
+            # print(scores)
 
             input_list = list(zip(input_tokens, scores))
-
             attention_input = []
 
-            for i in range(len(values_indexes)):
-                if i < len(values_indexes) - 1:
-                    attention_input.append(input_list[
-                        values_indexes[i]:values_indexes[i+1]-len(
-                            pred.tokenizer.encode(output_fields[i+1])
-                        )-1
-                    ])
-                else:
-                    attention_input.append(input_list[values_indexes[i]:-1])
+            # for i in range(len(values_indexes)):
+            #     if i < len(values_indexes) - 1:
+            #         attention_input.append(input_list[
+            #             values_indexes[i]:values_indexes[i+1]-len(
+            #                 pred.tokenizer.encode(output_fields[i+1])
+            #             )-1
+            #         ])
+            #     else:
+            #         attention_input.append(input_list[values_indexes[i]:-1])
             new_attention_input = []
-            for values_list in attention_input:
-                new_values_list = []
-                i = 1
-                while i < len(values_list):
-                    end_word = False
-                    mean_scores = [values_list[i-1][1]]
-                    new_world = values_list[i-1][0]
-                    while end_word is False:
-                        next_word = values_list[i][0]
-                        next_score = values_list[i][1]
-                        if (next_word[0] !=
-                                (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
-                            new_world += next_word
-                            mean_scores.append(next_score)
-                        else:
-                            end_word = True
-                            new_values_list.append(
-                                [new_world, np.mean(mean_scores)]
-                            )
-                        i += 1
-                        if i == len(values_list):
-                            end_word = True
-                            new_values_list.append(
-                                [new_world, np.mean(mean_scores)]
-                            )
-                new_attention_input.append(new_values_list)
-
+            values_list = input_list
+            new_values_list = []
+            i = 1
+            while i < len(values_list):
+                end_word = False
+                mean_scores = [values_list[i-1][1]]
+                new_world = values_list[i-1][0]
+                while end_word is False:
+                    next_word = values_list[i][0]
+                    next_score = values_list[i][1]
+                    if (next_word[0] !=
+                            (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
+                        new_world += next_word
+                        mean_scores.append(next_score)
+                    else:
+                        end_word = True
+                        new_values_list.append(
+                            [new_world, np.mean(mean_scores)]
+                        )
+                    i += 1
+                    if i == len(values_list):
+                        end_word = True
+                        new_values_list.append(
+                            [new_world, np.mean(mean_scores)]
+                        )
+            new_attention_input.append(new_values_list)
             attention_input = new_attention_input
             for i, input_list in enumerate(attention_input):
                 for k, value in enumerate(input_list):
-                    opacity = np.int(np.ceil(value[1]*6))
-                    bg_colors = f'bg-green-{opacity}' if (
+                    opacity = np.int(np.ceil(value[1]*5)) if\
+                        output_indexes[j] != -1 else 0
+                    bg_colors = f'bg-blue-{opacity}' if (
                         opacity) > 1 else 'bg-white'
                     attention_input[i][k][1] = bg_colors
                 attention_input[i] = [
@@ -448,6 +457,27 @@ def Lime():
             else:
                 result[i].append(dict(text=element, color='bg-white'))
     return jsonify(result)
+
+
+@app.route('/getJSONs', methods=['GET'])
+def getJSONs():
+    with open('data/table_1.json') as f:
+        table_1 = json.load(f)
+    with open('data/table_2.json') as f:
+        table_2 = json.load(f)
+    return jsonify([table_1, table_2])
+
+
+@app.route('/storeJSON', methods=['POST'])
+def storeJSON():
+    data = request.get_json()
+    if data['table_id'] == 1:
+        with open('data/table_1.json', 'w') as f:
+            json.dump(data['table'], f)
+    elif data['table_id'] == 2:
+        with open('data/table_2.json', 'w') as f:
+            json.dump(data['table'], f)
+    return 'ok'
 
 
 if __name__ == '__main__':

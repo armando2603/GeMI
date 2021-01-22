@@ -13,7 +13,7 @@
             wrap-cells
             separator="cell"
             virtual-scroll
-            :data="dataset_json"
+            :data="dataset_json[this.datasetType]"
             :columns="columns"
             row-key="id"
             selection="single"
@@ -38,12 +38,21 @@
                   color="white"
                   text-color="primary"
                   :options="[
-                    {label: 'Exp1', value: 1},
-                    {label: 'Exp2', value: 2}
+                    {label: '1', value: 1},
+                    {label: '2', value: 2}
                   ]"
                 />
               </div>
-            </template>
+              <div class='q-pl-md'>
+              <q-btn
+                rounded
+                color="primary"
+                label="Export json"
+                no-caps
+                @click="exportTable"
+              />
+              </div>
+          </template>
           </q-table>
         </div>
       </template>
@@ -51,7 +60,7 @@
     <div class='q-pa-md justify-evenly row'>
       <div>
         <div class='row q-pb-md'>
-          <q-input
+          <!-- <q-input
           class='input-id q-pb-md'
           outlined v-model="selected[0].id"
           label="GEO ID"
@@ -61,7 +70,7 @@
             <template v-slot:error>
               This id is not valid
             </template>
-          </q-input>
+          </q-input> -->
           <div class='q-pl-md q-pt-md q-pb-md'>
             <q-btn round icon='search' color="primary" @click='searchData'/>
           </div>
@@ -88,16 +97,6 @@
       </div>
       <div>
         <div class="q-pa-md justify-evenly row">
-          <div>
-            <q-toggle
-              class = 'q-pr-md text-grey-8'
-              style="white-space: pre-wrap;"
-              v-model="hideNone"
-              label="Hide None:"
-              @input='resetInputs()'
-              left-label
-            />
-          </div>
           <q-btn-toggle
             v-model="typeInterpreter"
             class="toggle"
@@ -115,17 +114,27 @@
               {label: 'Lime', value: 'lime'}
             ]"
           />
+          <q-toggle
+            class = 'q-pr-sm text-grey-8'
+            style="white-space: pre-wrap;"
+            v-model="hideNone"
+            label="Hide None"
+            @input='resetInputs()'
+          />
+          <div class='q-pr-sm'>
+          <q-btn :disable="!gpt2Computed || editcard || (last_index === 'no_index')" round color='primary' icon='rule' @click='editcard=true'/>
+          </div>
         </div>
         <div class="q-pa-md">
           <q-card>
             <q-card-section>
               <div class="justify-evenly row">
-                <div class="text-h6 text-primary"> Output</div>
+                <div class="text-h6 text-primary"> GPT2 Output</div>
               </div>
               <div class='my-outputs row'>
                 <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
-                  <div class='q-pa-sm' v-if="!((output.value === ' None' || output.value ===' unknown') && hideNone)">
-                  <q-field class="output-field" label-color="grey-10" color='indigo-10' :disable="!gpt2Computed" stack-label outlined dense :bg-color='output.color' :label="output.field" >
+                  <div class='q-pa-sm' v-if="!((output.value === ' None' || output.value ===' unknown' || output.value === '<missing>') && hideNone)">
+                  <q-field class="output-field" label-color="grey-10" color='indigo-10' :disable="!gpt2Computed" stack-label outlined dense :bg-color='output.color' :label="output.field + ' [' + output.confidence + ']'" >
                     <template v-slot:control>
                       <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">{{output.value}}</div>
                     </template>
@@ -150,6 +159,46 @@
             </q-card-section>
           </q-card>
         </div>
+      </div>
+      <div class="q-pt-lg q-pr-md  selection-type" v-if='editcard && gpt2Computed'>
+        <q-card>
+          <q-card-section>
+            <div class="text-h6 text-primary">Fix Output</div>
+            <div class='q-pt-md'>
+              <!-- <q-select
+                outlined
+                bg-color='grey-3'
+                v-model="edit_label"
+                :options="output_fields[this.datasetType]"
+                label='Select field'/> -->
+              <q-field borderless label="Selected Field" label-color='primary' stack-label>
+                <template v-slot:control>
+                  <div class="self-center full-width no-outline" tabindex="0">
+                    {{ output_fields[datasetType][last_index] }}
+                  </div>
+                </template>
+              </q-field>
+              <q-field borderless label="Confidence" label-color='primary' stack-label>
+                <template v-slot:control>
+                  <div class="self-center full-width no-outline" tabindex="0">
+                    {{ outputs[last_index].confidence }}
+                  </div>
+                </template>
+              </q-field>
+            </div>
+            <div class='q-pt-md'>
+              <q-input
+                outlined bg-color='grey-3'
+                v-model="edit_text"
+                dense
+                placeholder='insert new value' />
+            </div>
+            <div class='q-pt-md justify-evenly row'>
+              <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/>
+              <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/>
+            </div>
+          </q-card-section>
+        </q-card>
       </div>
       <div class="q-pt-lg  selection-type" v-if='typeInterpreter === "attention"'>
         <q-card>
@@ -236,7 +285,7 @@
 .table
   width: 100%
   max-height: 400px
-  max-width: 65%
+  max-width: 60%
   min-width: 10%
 .output-field
   width: 125px
@@ -246,6 +295,8 @@
   max-width: 430px
   max-height: 600px
 .toggle
+  min-width: 70px
+  max-height: 40px
   border: 1px solid #027be3
 .input-id
   width: 40%
@@ -254,18 +305,31 @@
 </style>
 
 <script>
-import json from '../assets/dataset.json'
-import jsonTable from '../assets/dataset_table.json'
-import jsonTable2 from '../assets/dataset_table2.json'
+// import json from '../assets/dataset.json'
+// import jsonTable from '../assets/dataset_table.json'
+// import jsonTable from '../assets/outputs.json'
+// import jsonTable2 from '../assets/dataset_table2.json'
+// import jsonTable2 from '../assets/data_pred.json'
+import { exportFile } from 'quasar'
+
 export default {
   data () {
     return {
+      edit_text: null,
+      edit_label: null,
+      edit_options: [
+        'Cell Line',
+        'Cell Type',
+        'Tissue Type',
+        'Factor'
+      ],
+      editcard: false,
       layersCustomOp: 'avg',
       headsCustomOp: 'avg',
       hideHeadsLayers: true,
       attentions: [],
-      // http://10.79.23.5:5003 or http://localhost:5000/prova2
-      backendIP: 'http://10.79.23.5',
+      // http://10.79.23.5:5003 or http://localhost:5003
+      backendIP: 'http://10.79.23.5:5003',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -301,66 +365,88 @@ export default {
       limeComputed: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
       gpt2Computed: false,
       isValid: true,
-      dataset: json,
-      dataset_json_1: jsonTable,
-      dataset_json_2: jsonTable2,
-      dataset_json: jsonTable,
+      dataset_json: {
+        1: [],
+        2: []
+      },
       selected: [{ id: '' }],
       pagination: {
-        rowsPerPage: 200
+        rowsPerPage: 200,
+        sortBy: 'warnings',
+        descending: true
       },
       columns: [
         {
           name: 'id',
           required: true,
-          label: 'GEO ID',
-          align: 'left',
+          label: 'Index',
+          align: 'center',
           field: row => row.id,
           format: val => `${val}`,
-          sortable: false
+          sortable: true
         },
-        { name: 'title', align: 'left', label: 'TITLE', field: 'title', sortable: false },
-        { name: 'description', align: 'left', label: 'DESCRIPTION', field: 'description', sortable: false },
-        { name: 'characteristics', align: 'left', label: 'CHARACTERISTICS', field: 'characteristics', sortable: false }
+        { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
+        { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
+        { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
+        { name: 'Cell Line', align: 'left', label: 'Cell Line', field: row => row.fields['Cell Line'].value, sortable: false },
+        { name: 'Cell Type', align: 'left', label: 'Cell Type', field: row => row.fields['Cell Type'].value, sortable: false },
+        { name: 'Tissue Type', align: 'left', label: 'Tissue Type', field: row => row.fields['Tissue Type'].value, sortable: false },
+        { name: 'Factor', align: 'left', label: 'Factor', field: row => row.fields.Factor.value, sortable: false }
       ],
       columns1: [
         {
           name: 'id',
           required: true,
-          label: 'GEO ID',
-          align: 'left',
+          label: 'Index',
+          align: 'center',
           field: row => row.id,
           format: val => `${val}`,
-          sortable: false
+          sortable: true
         },
-        { name: 'title', align: 'left', label: 'TITLE', field: 'title', sortable: false },
-        { name: 'description', align: 'left', label: 'DESCRIPTION', field: 'description', sortable: false },
-        { name: 'characteristics', align: 'left', label: 'CHARACTERISTICS', field: 'characteristics', sortable: false }
+        { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
+        { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
+        { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
+        { name: 'Cell Line', align: 'left', label: 'Cell Line', field: row => row.fields['Cell Line'].value, sortable: false },
+        { name: 'Cell Type', align: 'left', label: 'Cell Type', field: row => row.fields['Cell Type'].value, sortable: false },
+        { name: 'Tissue Type', align: 'left', label: 'Tissue Type', field: row => row.fields['Tissue Type'].value, sortable: false },
+        { name: 'Factor', align: 'left', label: 'Factor', field: row => row.fields.Factor.value, sortable: false }
       ],
       columns2: [
         {
           name: 'id',
           required: true,
-          label: 'N°',
-          align: 'left',
+          label: 'Index',
+          align: 'center',
           field: row => row.id,
           format: val => `${val}`,
-          sortable: false
+          sortable: true
         },
-        { name: 'gsm', label: 'GSM', align: 'left', field: row => row.GSM, format: val => `${val}`, sortable: false },
-        { name: 'gse', align: 'left', label: 'GSE', field: 'GSE', sortable: false },
-        { name: 'text', align: 'left', label: 'TEXT', field: 'text', sortable: false }
+        { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
+        { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
+        { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
+        { name: 'Assay name', align: 'left', label: 'Assay name', field: row => row.fields['Assay name'].value, sortable: false },
+        { name: 'Assay type', align: 'left', label: 'Assay type', field: row => row.fields['Assay type'].value, sortable: false },
+        { name: 'Target of assay', align: 'left', label: 'Target of assay', field: row => row.fields['Target of assay'].value, sortable: false },
+        { name: 'Genome assembly', align: 'left', label: 'Genome assembly', field: row => row.fields['Genome assembly'].value, sortable: false },
+        { name: 'Biosample term name', align: 'left', label: 'Biosample term name', field: row => row.fields['Biosample term name'].value, sortable: false },
+        { name: 'Project', align: 'left', label: 'Project', field: row => row.fields.Project.value, sortable: false },
+        { name: 'Organism', align: 'left', label: 'Organism', field: row => row.fields.Organism.value, sortable: false },
+        { name: 'Life stage', align: 'left', label: 'Life stage', field: row => row.fields['Life stage'].value, sortable: false },
+        { name: 'Age', align: 'left', label: 'Age', field: row => row.fields.Age.value, sortable: false },
+        { name: 'Age units', align: 'left', label: 'Age units', field: row => row.fields['Age units'].value, sortable: false },
+        { name: 'Sex', align: 'left', label: 'Sex', field: row => row.fields.Sex.value, sortable: false },
+        { name: 'Ethnicity', align: 'left', label: 'Ethnicity', field: row => row.fields.Ethnicity.value, sortable: false },
+        { name: 'Health status', align: 'left', label: 'Health status', field: row => row.fields['Health status'].value, sortable: false },
+        { name: 'Classification', align: 'left', label: 'Classification', field: row => row.fields.Classification.value, sortable: false },
+        { name: 'Investigated as', align: 'left', label: 'Investigated as', field: row => row.fields['Investigated as'].value, sortable: false }
+
       ],
       id: 'GSM1568245',
       inputs_api: [
-        { field: 'Title', values: [{ text: '', color: 'bg-white' }] },
-        { field: 'Description', values: [{ text: '', color: 'bg-white' }] },
-        { field: 'Characteristics', values: [{ text: '', color: 'bg-white' }] }
+        { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
       ],
       inputs: [
-        { field: 'Title', values: [{ text: '', color: 'bg-white' }] },
-        { field: 'Description', values: [{ text: '', color: 'bg-white' }] },
-        { field: 'Characteristics', values: [{ text: '', color: 'bg-white' }] }
+        { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
       attentionResults: [],
@@ -398,12 +484,12 @@ export default {
     callModel () {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
-        this.$axios.post(this.backendIP + ':5003/CallModel', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
+        this.$axios.post(this.backendIP + '/CallModel', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
           this.attentions = response.data.attentions
           this.outputs = response.data.outputs
           this.gradientResults = response.data.gradient
           this.output_indexes = response.data.output_indexes
-          this.$axios.post(this.backendIP + ':5003/AttentionParse', {
+          this.$axios.post(this.backendIP + '/AttentionParse', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
             attentions: this.attentions,
@@ -425,12 +511,8 @@ export default {
     searchData () {
       this.limeComputed = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
       this.gpt2Computed = false
+      this.editcard = false
       this.id = this.selected[0].id
-      if (((this.id in this.dataset) === false) && this.showGeoInput === true) {
-        this.isValid = false
-        this.disableGpt2button = true
-        return
-      }
       for (const x of Array(this.limeResults.length).keys()) {
         this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
         this.limeResults[x][1] = [{ text: '', color: 'bg-grey-3' }]
@@ -440,22 +522,19 @@ export default {
         this.inputs[x].values = [{ text: '', color: 'bg-white' }]
       }
       if (this.datasetType === 1) {
-        this.inputs_api[0].values[0].text = this.dataset[this.id].title
-        this.inputs_api[1].values[0].text = this.dataset[this.id].description
-        this.inputs_api[2].values[0].text = this.dataset[this.id].characteristics
-        this.inputs[0].values[0].text = this.dataset[this.id].title
-        this.inputs[1].values[0].text = this.dataset[this.id].description
-        this.inputs[2].values[0].text = this.dataset[this.id].characteristics
+        this.inputs_api[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
+        this.inputs[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
       }
       if (this.datasetType === 2) {
-        this.inputs_api[0].values[0].text = this.dataset_json[this.id].text
-        this.inputs[0].values[0].text = this.dataset_json[this.id].text
+        this.inputs_api[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
+        this.inputs[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
       }
       this.isValid = true
       this.disableGpt2button = false
       this.last_index = 'no_index'
     },
     visualize (index) {
+      this.edit_text = ''
       if (this.gpt2Computed) {
         if (this.typeInterpreter === 'lime') {
           if (this.limeComputed[index]) {
@@ -465,7 +544,7 @@ export default {
           } else {
             this.loadIcon = true
             this.limeComputed[index] = true
-            this.$axios.post(this.backendIP + ':5003/Lime', {
+            this.$axios.post(this.backendIP + '/Lime', {
               inputs: this.inputs_api, outputs: this.outputs, field: this.outputs[index].field, exp_id: this.datasetType
             }).then((response) => {
               this.loadIcon = false
@@ -510,22 +589,16 @@ export default {
       return ''
     },
     resetPage () {
+      this.edit_text = null
+      this.edit_label = null
+      this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
+      this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
       if (this.datasetType === 1) {
-        this.inputs = [
-          { field: 'Title', values: [{ text: '', color: 'bg-white' }] },
-          { field: 'Description', values: [{ text: '', color: 'bg-white' }] },
-          { field: 'Characteristics', values: [{ text: '', color: 'bg-white' }] }
-        ]
-
-        this.inputs_api = this.inputs
         this.showGeoInput = true
         this.columns = this.columns1
-        this.dataset_json = this.dataset_json_1
         this.layers_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
       }
       if (this.datasetType === 2) {
-        this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
-        this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
         this.limeResults = []
         this.layers_list = [0, 1, 2, 3, 4, 5]
         this.selected_layers = []
@@ -534,7 +607,6 @@ export default {
         }
         this.showGeoInput = false
         this.columns = this.columns2
-        this.dataset_json = this.dataset_json_2
       }
       this.gpt2Computed = false
       this.outputs = []
@@ -544,7 +616,7 @@ export default {
     visualizeNewAggregation () {
       if (this.last_index !== 'no_index') {
         if (this.aggregationType === 3) {
-          this.$axios.post(this.backendIP + ':5003/AttentionParse', {
+          this.$axios.post(this.backendIP + '/AttentionParse', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
             attentions: this.attentions,
@@ -562,6 +634,7 @@ export default {
           }).catch(error => (error.message))
           this.hideHeadsLayers = false
         } else {
+          this.hideHeadsLayers = true
           for (const i of Array(this.inputs_api.length).keys()) {
             this.inputs[i].values = this.attentionResults[this.aggregationType][this.last_index][i]
           }
@@ -569,12 +642,71 @@ export default {
       } else {
         if (this.aggregationType === 3) {
           this.hideHeadsLayers = false
+        } else {
+          this.hideHeadsLayers = true
         }
         for (const i of Array(this.inputs_api.length).keys()) {
           this.inputs[i].values = this.this_input_api[i].values
         }
       }
+    },
+    count_warns (row) {
+      var nWarn = 0
+      for (var field of this.output_fields[this.datasetType]) {
+        if (row.fields[field].confidence < 0.75 && row.fields[field].value !== ' none' && row.fields[field].value !== ' unknown' && row.fields[field].value !== '<missing>') {
+          nWarn += 1
+        }
+      }
+      return nWarn
+    },
+    count_fixs (row) {
+      let nFix = 0
+      for (var field of this.output_fields[this.datasetType]) {
+        if (row.fields[field].fixed === true) {
+          nFix += 1
+        }
+      }
+      return nFix
+    },
+    store_json () {
+      this.$axios.post(
+        this.backendIP + '/storeJSON',
+        { table: this.dataset_json[this.datasetType], table_id: this.datasetType }
+      ).catch(error => (error.message))
+    },
+    changeOutput () {
+      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].value = this.edit_text
+      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].confidence = 1
+      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].fixed = true
+      this.store_json()
+    },
+    confirmOutput () {
+      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].confidence = 1
+      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].fixed = true
+      this.store_json()
+    },
+    exportTable () {
+      const status = exportFile(
+        'table-export.json',
+        JSON.stringify(this.dataset_json[this.datasetType]),
+        'text/json'
+      )
+
+      if (status !== true) {
+        this.$q.notify({
+          message: 'Browser denied file download...',
+          color: 'negative',
+          icon: 'warning'
+        })
+      }
     }
+  },
+  created () {
+    this.$axios.get(this.backendIP + '/getJSONs')
+      .then((response) => {
+        this.dataset_json[1] = response.data[0]
+        this.dataset_json[2] = response.data[1]
+      }).catch(error => (error.message))
   }
 }
 </script>

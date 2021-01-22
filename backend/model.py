@@ -40,24 +40,62 @@ class Predictor:
         )
         self.generated_sequence = None
         self.MAX_LEN = 400
+        self.model = None
+        self.model_id = None
         # Load pre-trained model (weights)
-        model_name = 'distilgpt2'
-        self.model = GPT2LMHeadModel.from_pretrained(
+        model_name = 'gpt2'
+        self.model_1 = GPT2LMHeadModel.from_pretrained(
+            'gpt2',
+            output_attentions=True,
+            return_dict=True
+        )
+        self.model_2 = GPT2LMHeadModel.from_pretrained(
             model_name,
             output_attentions=True,
             return_dict=True
         )
-        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-        self.tokenizer.add_special_tokens(
+        # self.model_3 = GPT2LMHeadModel.from_pretrained(
+        #     model_name,
+        #     output_attentions=True,
+        #     return_dict=True
+        # )
+        self.tokenizer_3 = GPT2Tokenizer.from_pretrained(model_name)
+        self.tokenizer_12 = GPT2Tokenizer.from_pretrained(model_name)
+        self.tokenizer_12.add_special_tokens({'pad_token': '<pad>'})
+        self.tokenizer_3.add_special_tokens(
             {
                 'bos_token': '<BOS>',
                 'eos_token': '<EOS>',
                 'pad_token': '<PAD>'
             }
         )
-        self.model.resize_token_embeddings(len(self.tokenizer))
+        self.model_1.resize_token_embeddings(len(self.tokenizer_12))
+        self.model_2.resize_token_embeddings(len(self.tokenizer_12))
+        # self.model_3.resize_token_embeddings(len(self.tokenizer_3))
 
-        checkpoint = torch.load('checkpoint-epoch=42-val_loss=0.63.pth')
+        # self.model_1.load_state_dict(
+        #     torch.load(
+        #         'Trained_Model.pth',
+        #         map_location=torch.device(self.device)
+        #     )
+        # )
+        # self.model_2.load_state_dict(
+        #     torch.load(
+        #         'Trained_Model_2.pth',
+        #         map_location=torch.device(self.device)
+        #     )
+        # )
+        state_dict = torch.load('Models/checkpoint_1-epoch=16-val_loss=0.12.ckpt')['state_dict']
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            if k[:6] == 'model.':
+                name = k[6:]
+            else:
+                name = k
+            new_state_dict[name] = v
+        self.model_1.load_state_dict(new_state_dict)
+
+        checkpoint = torch.load('Models/checkpoint_2-epoch=13-val_loss=0.08.ckpt')
         state_dict = checkpoint['state_dict']
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
@@ -66,19 +104,47 @@ class Predictor:
             else:
                 name = k
             new_state_dict[name] = v
-        self.model.load_state_dict(new_state_dict)
+        self.model_2.load_state_dict(new_state_dict)
 
-        self.model.eval()
-        self.model.to(self.device)
+        # checkpoint = torch.load('checkpoint-epoch=42-val_loss=0.63.pth')
+        # state_dict = checkpoint['state_dict']
+        # new_state_dict = OrderedDict()
+        # for k, v in state_dict.items():
+        #     if k[:6] == 'model.':
+        #         name = k[6:]
+        #     else:
+        #         name = k
+        #     new_state_dict[name] = v
+        # self.model_3.load_state_dict(new_state_dict)
 
-    # this is used for lime and return the distributions of the output
+        # self.model_3.eval()
+        # self.model_3.to(self.device)
+        
+        self.model_1.eval()
+        self.model_1.to(self.device)
+
+        self.model_2.eval()
+        self.model_2.to(self.device)
+
     def predict(self, list_input_text):
+        assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
+        if self.model_id == 1:
+            self.model = self.model_1
+            self.tokenizer = self.tokenizer_12
+        if self.model_id == 2:
+            self.model = self.model_2
+            self.tokenizer = self.tokenizer_12
+        if self.model_id == 3:
+            self.model = self.model_3
+            self.tokenizer = self.tokenizer_3
         list_idx = []
         for i, input_text in enumerate(list_input_text):
-            if input_text[-1] != '=' and input_text[-1] != ' ':
-                input_text += ' ='
+            # if input_text[-1] != '=' and input_text[-1] != ' ':
+            #     input_text += ' ='
+            if self.model_id == 3:
+                input_text = '<BOS> ' + input_text + '<EOS>'
 
-            input_text = '<BOS> ' + input_text + '<EOS>'
+            print(input_text)
             indexed_tokens = self.tokenizer.encode(
                 input_text,
                 truncation=True,
@@ -91,7 +157,6 @@ class Predictor:
         grad_explain = []
         # Predict all tokens
         for input_ids in tqdm(list_idx, position=0, leave=True):
-            input_ids = input_ids.view(1, -1)
             input_length = input_ids.shape[1]
             # print(input_ids.size())
 
@@ -177,28 +242,11 @@ class Predictor:
 
             self.confidences = []
             for j in range(len(self.indexes)):
-                out_prob = distributions[self.indexes[j]]
-                self.confidences.append(np.max(out_prob))
-
-            # for j in range(len(self.indexes)):
-            #     if j < len(self.indexes) - 1:
-            #         outputs_prob = distributions[
-            #             self.indexes[j]:
-            #             + self.indexes[j+1]
-            #             - len(self.tokenizer.encode(self.fields[j+1]))
-            #             - 1
-            #         ]
-            #     else:
-            #         outputs_prob = distributions[
-            #             self.indexes[j]:-1
-            #         ]
-            #     outputs_prob = [
-            #         out_prob for
-            #         out_prob in outputs_prob
-            #     ]
-            #     outputs_conf = np.max(outputs_prob, axis=1)
-            #     self.confidences.append(np.mean(outputs_conf, axis=0))
-
+                if self.indexes[j] == -1:
+                    self.confidences.append(1)
+                else:
+                    out_prob = distributions[self.indexes[j]]
+                    self.confidences.append(np.max(out_prob))
         results_array = np.array(results)
         self.generated_sequence_ids = generated_sequence
         return results_array

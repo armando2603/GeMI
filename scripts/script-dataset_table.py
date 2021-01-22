@@ -9,6 +9,7 @@ dump_json = df.to_json(orient='values')
 raw_json = json.loads(dump_json)
 # create a new dict
 dataset = []
+index = 0
 for elem in raw_json:
     full_text = elem[1] + ' ' + elem[2]
     if len(tokenizer.encode(full_text)) < 240:
@@ -31,11 +32,13 @@ for elem in raw_json:
                 input_split[i][1] = ': '.join(input_split[i][1:])
         # create the dict
         dataset.append(dict(
-            id=id,
+            id=index,
+            GSM=id,
             title=input_split[0][1],
             description=input_split[1][1],
             characteristics=input_split[2][1]
         ))
+        index += 1
 # create the json file
 with open('../frontend/src/assets/dataset_table.json', 'w') as json_file:
     json.dump(dataset, json_file)
