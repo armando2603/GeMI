@@ -55,12 +55,20 @@ def CallModel():
                 value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
                 output_split.append([data['output_fields'][i], value])
 
-    colors = ['red-3'] * 15 + ['orange-3'] * 8 + ['green-3'] * 3
+    # colors = ['red-3'] * 15 + ['orange-3'] * 8 + ['green-3'] * 3
+    def get_color(i):
+        if confidences[i] > 0.85:
+            color = ['green-3']
+        elif confidences[i] < 0.60:
+            color = ['red-3']
+        else:
+            color = ['orange-3']
+        return color
 
     outputs = [dict(
         field=elem[0],
         value=elem[1],
-        color=colors[np.int(np.ceil(confidences[i]*25))] if (
+        color=get_color(i) if (
             elem[1] != ' unknown' and elem[1] != ' None' and elem[1] != '<missing>'
             ) else 'grey-3',
         confidence=np.round(np.float64(confidences[i]), 2)
