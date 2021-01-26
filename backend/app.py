@@ -199,7 +199,7 @@ def CallModel():
     response = {
         'outputs': outputs,
         'attentions': np.round(pred.attentions[
-            :, :, len(input_ids):, :len(input_ids)
+            :, :, len(input_ids) + 1:, :len(input_ids)
         ], 6).tolist(),
         'output_indexes': output_indexes.tolist(),
         'gradient': gradient_inputs
@@ -215,6 +215,7 @@ def AttentionParse():
     attentions = np.array(data['attentions'])
     inputs_data = data['inputs']
     output_fields = data['output_fields']
+    output_fields = [' ' + field for field in output_fields]
     output_indexes = np.array(data['output_indexes'])
     aggregationType = data['aggregation_type']
     selected_heads = np.array(data['selected_heads'])
@@ -322,7 +323,6 @@ def AttentionParse():
                     output_indexes[j]:-1, :
                 ]
             scores = np.mean(scores, axis=0)
-
     #         filtered_scores = []
 
     #         for i in range(len(values_indexes)):
