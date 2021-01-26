@@ -84,7 +84,7 @@
                     </q-card-section>
                     <q-card-section class='row justify-evenly'>
                       <q-uploader
-                        url="http://localhost:5003/uploader"
+                        :url="backendIP + '/uploader'"
                         :headers="[{name: 'Dataset', value: datasetType}]"
                         style="max-width: 300px"
                         accept=".json"
