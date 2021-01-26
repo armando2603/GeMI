@@ -26,7 +26,7 @@ def CallModel():
     #         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
     #         input_text = input_text[:-2] + '='
     # elif data['exp_id'] == 2:
-    input_text = inputs_data[0]['values'][0]['text'] + ' = '
+    input_text = inputs_data[0]['values'][0]['text'] + ' ='
     output_fields = data['output_fields']
     pred.fields = [' ' + field for field in output_fields]
     output_fields = [' ' + field for field in output_fields]
@@ -52,7 +52,7 @@ def CallModel():
                 ])
                 output_split.append([data['output_fields'][i], value])
             else:
-                value = pred.tokenizer.decode(output_ids[output_indexes[i]:-2])
+                value = pred.tokenizer.decode(output_ids[output_indexes[i]:-1])
                 output_split.append([data['output_fields'][i], value])
 
     # colors = ['red-3'] * 15 + ['orange-3'] * 8 + ['green-3'] * 3
@@ -120,7 +120,7 @@ def CallModel():
             scores = gradient_score[
                 output_indexes[j]: output_indexes[j+1]
                 - len(pred.tokenizer.encode(output_fields[j+1]))
-                - 1, :
+                - 2, :
             ]
         else:
             scores = gradient_score[
@@ -315,7 +315,7 @@ def AttentionParse():
                 scores = attentions[
                     output_indexes[j]: output_indexes[j+1]
                     - len(pred.tokenizer.encode(output_fields[j+1]))
-                    - 1, :
+                    - 2, :
                 ]
             else:
                 scores = attentions[
@@ -486,6 +486,31 @@ def storeJSON():
         with open('data/table_2.json', 'w') as f:
             json.dump(data['table'], f)
     return 'ok'
+
+
+@app.route('/uploader', methods=['POST'])
+def upload():
+    dataset_type = request.headers['Dataset']
+    for fname in request.files:
+        f = request.files.get(fname)
+        f.save('data/input_' + dataset_type + '.json')
+    return 'Okay!'
+
+
+@app.route('/generateTable', methods=['POST'])
+def generateTable():
+    data = request.get_json()
+    output_fields = data['output_fields']
+    dataset_type = str(data['exp_id'])
+    pred.fields = [' ' + field for field in output_fields]
+    pred.model_id = data['exp_id']
+    with open('data/input_' + dataset_type + '.json') as f:
+        input_list = json.load(f)
+    input_list = [text + ' =' for text in input_list]
+    table_json = pred.generateTable(input_list)
+    with open('data/table_' + dataset_type + '.json', 'w') as outfile:
+        json.dump(table_json, outfile)
+    return 'Okay!'
 
 
 if __name__ == '__main__':

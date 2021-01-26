@@ -44,13 +44,81 @@
                 />
               </div>
               <div class='q-pl-md'>
-              <q-btn
-                rounded
-                color="primary"
-                label="Export json"
-                no-caps
-                @click="exportTable"
-              />
+                <q-btn
+                  rounded
+                  color="primary"
+                  label="Load Samples"
+                  no-caps
+                  @click="uploadSamples=true"
+                />
+                <q-dialog v-model="uploadSamples" persistent transition-show="scale" transition-hide="scale">
+                  <q-card style="width: 510px" class="text-primary">
+                    <q-card-section class='row items-center'>
+                      <div class="text-h6">Upload Samples</div>
+                      <q-space />
+                      <q-btn icon="close" @click="disableLoadSamples=true; show_error=false" flat round dense v-close-popup />
+                    </q-card-section>
+                    <q-card-section class="q-pt-none">
+                      Upload a json file with a list of samples, e.g json = ['sample1', 'sample2']
+                    </q-card-section>
+                    <q-card-section class="row items-start">
+                      <div class='q-pr-md q-pt-sm'>Select dataset type:</div>
+                      <q-btn-toggle
+                        v-model="datasetType"
+                        class="toggle"
+                        style='width: 100px'
+                        no-caps
+                        rounded
+                        @input='resetPage()'
+                        dense
+                        toggle-color='primary'
+                        unelevated
+                        spread
+                        color="white"
+                        text-color="primary"
+                        :options="[
+                          {label: '1', value: 1},
+                          {label: '2', value: 2}
+                        ]"
+                      />
+                    </q-card-section>
+                    <q-card-section class='row justify-evenly'>
+                      <q-uploader
+                        url="http://localhost:5003/uploader"
+                        :headers="[{name: 'Dataset', value: datasetType}]"
+                        style="max-width: 300px"
+                        accept=".json"
+                        max-files="1"
+                        hide-upload-btn
+                        auto-upload
+                        @uploaded='disableLoadSamples=false'
+                      />
+                    </q-card-section>
+                    <q-card-section class='row justify-evenly'>
+                      <div class="text-h6 text-red" v-if="show_error">{{error_text}}</div>
+                    </q-card-section>
+                    <q-card-section class='row justify-evenly'>
+                      <q-btn
+                        rounded
+                        :disable='disableLoadSamples'
+                        color="primary"
+                        label="Load Samples"
+                        no-caps
+                        @click="loadSamples()"
+                        :loading="loadingSamples"
+                      />
+                    </q-card-section>
+                  </q-card>
+                </q-dialog>
+              </div>
+              <div class='q-pl-md'>
+                <q-btn
+                  rounded
+                  color="primary"
+                  label="Export json"
+                  no-caps
+                  @click="exportTable"
+                />
               </div>
           </template>
           </q-table>
@@ -80,7 +148,37 @@
         </div>
         <q-card class="my-inputs">
           <q-card-section>
-            <div class="text-h6 text-primary q-pl-md">Selected Input Data</div>
+            <div class='justify-evenly row'>
+              <div class="text-h6 text-primary q-pb-sm q-pl-md">Selected Input Data</div>
+            </div>
+            <div class='justify-evenly row' style='height: 8px'>
+            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='orange-4' stack-label>
+              <template v-slot:control>
+                <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
+                  {{count_warns(dataset_json[datasetType][id])}}
+                </div>
+              </template>
+              <template v-slot:label>
+                <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
+                  Warns
+                </div>
+              </template>
+            </q-field>
+            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width: 55px' label-slot dense readonly outlined label="Fixs" label-color='green-4' stack-label>
+              <template v-slot:control>
+                <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
+                  {{count_fixs(dataset_json[datasetType][id])}}
+                </div>
+              </template>
+              <template v-slot:label>
+                <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
+                  Fixes
+                </div>
+              </template>
+            </q-field>
+          </div>
+          </q-card-section>
+          <q-card-section>
             <div class='q-pl-sm q-pr-sm' v-for="input in inputs" :key="input" >
               <q-field borderless readonly :label="input.field" stack-label>
                 <template v-slot:control>
@@ -283,10 +381,9 @@
   position: relative;
   top: 60px
 .table
-  width: 100%
   max-height: 400px
-  max-width: 60%
-  min-width: 10%
+  min-width: 20%
+  max-width: 65%
 .output-field
   width: 125px
   height: 95px
@@ -315,6 +412,11 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      show_error: false,
+      error_text: '',
+      loadingSamples: false,
+      disableLoadSamples: true,
+      uploadSamples: false,
       edit_text: null,
       edit_label: null,
       edit_options: [
@@ -441,7 +543,7 @@ export default {
         { name: 'Investigated as', align: 'left', label: 'Investigated as', field: row => row.fields['Investigated as'].value, sortable: false }
 
       ],
-      id: 'GSM1568245',
+      id: 'none',
       inputs_api: [
         { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
       ],
@@ -513,6 +615,7 @@ export default {
       this.gpt2Computed = false
       this.editcard = false
       this.id = this.selected[0].id
+
       for (const x of Array(this.limeResults.length).keys()) {
         this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
         this.limeResults[x][1] = [{ text: '', color: 'bg-grey-3' }]
@@ -591,6 +694,7 @@ export default {
     resetPage () {
       this.edit_text = null
       this.edit_label = null
+      this.id = 'none'
       this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
       this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
       if (this.datasetType === 1) {
@@ -600,7 +704,7 @@ export default {
       }
       if (this.datasetType === 2) {
         this.limeResults = []
-        this.layers_list = [0, 1, 2, 3, 4, 5]
+        // this.layers_list = [0, 1, 2, 3, 4, 5]
         this.selected_layers = []
         for (const x of Array(this.output_fields[this.datasetType].length).keys()) {
           this.limeResults[x] = [[], [], []]
@@ -660,7 +764,7 @@ export default {
       return nWarn
     },
     count_fixs (row) {
-      let nFix = 0
+      var nFix = 0
       for (var field of this.output_fields[this.datasetType]) {
         if (row.fields[field].fixed === true) {
           nFix += 1
@@ -699,6 +803,29 @@ export default {
           icon: 'warning'
         })
       }
+    },
+    loadSamples () {
+      this.loadingSamples = true
+      this.$axios.post(
+        this.backendIP + '/generateTable',
+        { output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }
+      ).then(response => {
+        this.$axios.get(this.backendIP + '/getJSONs')
+          .then((response) => {
+            this.dataset_json[1] = response.data[0]
+            this.dataset_json[2] = response.data[1]
+            this.loadingSamples = false
+            this.disableLoadSamples = true
+            this.uploadSamples = false
+            this.show_error = false
+          }).catch(error => (error.message))
+      }).catch(error => {
+        this.loadingSamples = false
+        this.disableLoadSamples = true
+        this.show_error = true
+        console.log(error)
+        this.error_text = 'Something went wrong'
+      })
     }
   },
   created () {

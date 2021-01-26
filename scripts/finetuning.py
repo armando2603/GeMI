@@ -38,8 +38,8 @@ class CustomDataset(Dataset):
         df1_IO = df1[['Input', 'Output']]
         df2_IO = df2[['Input', 'Output']]
 
-        # self.df = pd.concat([df1_IO, df2_IO], ignore_index=True)
-        self.df = df1_IO
+        self.df = pd.concat([df1_IO, df2_IO], ignore_index=True)
+        # self.df = df1_IO
 
         self.maxlen = maxlen
         self.tokenizer = tokenizer
@@ -51,10 +51,10 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         inp_str = self.df.loc[index, 'Input']
         trg_str = self.df.loc[index, 'Output']
-        inp_ids = self.tokenizer.encode(inp_str)
-        trg_ids = self.tokenizer.encode(trg_str)
+        inp_ids = self.tokenizer.encode(inp_str[:-1])
+        trg_ids = self.tokenizer.encode(' ' + trg_str)
         pad_id = self.tokenizer.encode('<pad>')[0]
-        end_id = self.tokenizer.encode(' = ')
+        end_id = self.tokenizer.encode(' =')
 
         src = inp_ids + trg_ids
         # padding the sentence to the max length
@@ -127,20 +127,20 @@ if __name__ == "__main__":
     checkpoint_callback = ModelCheckpoint(
         dirpath=save_dir_path,
         monitor='val_loss',
-        filename='checkpoint_1-{epoch:02d}-{val_loss:.2f}',
-        save_top_k=2,
+        filename='checkpoint_1-{epoch:02d}-{val_loss:.3f}',
+        save_top_k=1,
         mode='min',
     )
     trainer = Trainer(
         tpu_cores=8,
         progress_bar_refresh_rate=2,
         max_epochs=50,
-        resume_from_checkpoint='/content/drive/MyDrive/Tesi Polimi/GEO-metadata-translator-master/Checkpoints/checkpoint_1-epoch=16-val_loss=0.12.ckpt',
+        # resume_from_checkpoint='/content/drive/MyDrive/Tesi Polimi/GEO-metadata-translator-master/Checkpoints/checkpoint_1-epoch=16-val_loss=0.12.ckpt',
         callbacks=[
             checkpoint_callback,
             EarlyStopping(
                 monitor='val_loss',
-                patience=2,
+                patience=3,
                 mode='min',
                 verbose=True
             )

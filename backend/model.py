@@ -60,17 +60,11 @@ class Predictor:
         #     return_dict=True
         # )
         self.tokenizer_3 = GPT2Tokenizer.from_pretrained(model_name)
-        self.tokenizer_12 = GPT2Tokenizer.from_pretrained(model_name)
-        self.tokenizer_12.add_special_tokens({'pad_token': '<pad>'})
-        self.tokenizer_3.add_special_tokens(
-            {
-                'bos_token': '<BOS>',
-                'eos_token': '<EOS>',
-                'pad_token': '<PAD>'
-            }
-        )
-        self.model_1.resize_token_embeddings(len(self.tokenizer_12))
-        self.model_2.resize_token_embeddings(len(self.tokenizer_12))
+        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+        self.tokenizer.add_special_tokens({'pad_token': '<pad>'})
+
+        self.model_1.resize_token_embeddings(len(self.tokenizer))
+        self.model_2.resize_token_embeddings(len(self.tokenizer))
         # self.model_3.resize_token_embeddings(len(self.tokenizer_3))
 
         # self.model_1.load_state_dict(
@@ -85,7 +79,17 @@ class Predictor:
         #         map_location=torch.device(self.device)
         #     )
         # )
-        state_dict = torch.load('Models/checkpoint_1-epoch=16-val_loss=0.12.ckpt')['state_dict']
+        # state_dict = torch.load('Models/checkpoint_1-epoch=16-val_loss=0.12.ckpt')['state_dict']
+        # new_state_dict = OrderedDict()
+        # for k, v in state_dict.items():
+        #     if k[:6] == 'model.':
+        #         name = k[6:]
+        #     else:
+        #         name = k
+        #     new_state_dict[name] = v
+        # self.model_1.load_state_dict(new_state_dict)
+
+        state_dict = torch.load('Models/checkpoint_1-epoch=14-val_loss=0.129.ckpt')['state_dict']
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
             if k[:6] == 'model.':
@@ -119,10 +123,9 @@ class Predictor:
 
         # self.model_3.eval()
         # self.model_3.to(self.device)
-        
+
         self.model_1.eval()
         self.model_1.to(self.device)
-
         self.model_2.eval()
         self.model_2.to(self.device)
 
@@ -130,20 +133,15 @@ class Predictor:
         assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
         if self.model_id == 1:
             self.model = self.model_1
-            self.tokenizer = self.tokenizer_12
         if self.model_id == 2:
             self.model = self.model_2
-            self.tokenizer = self.tokenizer_12
         if self.model_id == 3:
             self.model = self.model_3
-            self.tokenizer = self.tokenizer_3
         list_idx = []
         for i, input_text in enumerate(list_input_text):
             # if input_text[-1] != '=' and input_text[-1] != ' ':
             #     input_text += ' ='
-            if self.model_id == 3:
-                input_text = '<BOS> ' + input_text + '<EOS>'
-
+            end_id = self.tokenizer.encode(' $')[0]
             print(input_text)
             indexed_tokens = self.tokenizer.encode(
                 input_text,
@@ -164,8 +162,9 @@ class Predictor:
             distributions = []
             predicted_token = 0
 
-            while (predicted_token != self.tokenizer.pad_token_id and
-                    len(generated_sequence) < 260):
+            while(predicted_token != self.tokenizer.pad_token_id
+                        and predicted_token != end_id
+                        and len(generated_sequence) < 300):
 
                 inputs_embeds, token_ids_tensor_one_hot = \
                     self._get_embeddings(input_ids[0])
@@ -204,7 +203,7 @@ class Predictor:
             print(self.tokenizer.decode(generated_sequence))
 
             self.indexes = []
-            self.fields[0] = self.fields[0][1:]
+            # self.fields[0] = self.fields[0][1:]
             for field in self.fields:
                 field_tokens = np.array(self.tokenizer.encode(field))
                 generated_sequence = np.array(generated_sequence)
@@ -268,3 +267,115 @@ class Predictor:
 
         inputs_embeds = torch.matmul(token_ids_tensor_one_hot, embedding_matrix)
         return inputs_embeds, token_ids_tensor_one_hot
+
+    def generateTable(self, list_input_text):
+        assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
+        if self.model_id == 1:
+            self.model = self.model_1
+        if self.model_id == 2:
+            self.model = self.model_2
+        if self.model_id == 3:
+            self.model = self.model_3
+        table_json = []
+        with torch.no_grad():
+            for it, input_text in enumerate(list_input_text):
+                input_ids = self.tokenizer.encode(input_text, return_tensors='pt')
+                input_ids.to(self.device)
+                end_id = self.tokenizer.encode(' $')[0]
+                predicted_token = 0
+                generated_sequence = []
+                distributions = []
+                while(predicted_token != self.tokenizer.pad_token_id
+                        and predicted_token != end_id
+                        and len(generated_sequence) < 300):
+                    out = self.model(input_ids)
+                    last_tensor = out.logits[0, -1, :]
+                    distributions.append(
+                        F.softmax(last_tensor, 0).detach().cpu().numpy()
+                    )
+                    predicted_token_tensor = torch.argmax(last_tensor)
+                    predicted_token = predicted_token_tensor.item()
+                    input_ids = torch.cat(
+                        (input_ids, predicted_token_tensor.view(1, 1)), dim=-1)
+                    generated_sequence.append(predicted_token)
+                print(self.tokenizer.decode(generated_sequence))
+                values, confidences = self.extract_values(
+                    generated_sequence, distributions
+                )
+                fields_dict = dict()
+                for i, field in enumerate(self.fields):
+                    fields_dict[field[1:]] = dict(
+                        value=values[i],
+                        confidence=np.round(np.float(confidences[i]), 3),
+                        fixed=False
+                    )
+                table_json.append(
+                    dict(
+                        id=it,
+                        input=input_text[:-2],
+                        prediction_text=self.tokenizer.decode(generated_sequence),
+                        fields=fields_dict
+                    )
+                )
+        return table_json
+
+    def extract_values(self, text_ids, distributions):
+        output_indexes = []
+        for field in self.fields:
+            field_tokens = np.array(self.tokenizer.encode(field))
+            generated_sequence = np.array(text_ids)
+            indexes = np.ones(
+                len(np.where(
+                    generated_sequence == field_tokens[0])[0])
+            ) * -1
+            for i, token in enumerate(field_tokens):
+                current_indexes = np.where(
+                    generated_sequence == token)[0]
+                for n, index in enumerate(indexes):
+                    if i == 0:
+                        indexes = current_indexes
+                    else:
+                        for current_index in current_indexes:
+                            if index + 1 == current_index:
+                                indexes[n] = current_index
+                                break
+                            else:
+                                indexes[n] = -1
+
+            if (len(np.where(indexes != -1)[0]) == 0):
+                index = -1
+            else:
+                index = indexes[np.where(indexes != -1)[0][0]] + 2
+            if index >= len(generated_sequence):
+                index = -1
+            output_indexes.append(index)
+
+        assert not all(elem == -1 for elem in output_indexes),\
+            f'One sample are not recognized: {self.tokenizer.decode(generated_sequence)}'
+        values = []
+        for i in range(len(output_indexes)):
+            if output_indexes[i] == -1:
+                values.append('<missing>')
+            else:
+                if i < len(output_indexes) - 1:
+                    values.append(self.tokenizer.decode(generated_sequence[
+                        output_indexes[i]:output_indexes[i+1]-len(
+                            self.tokenizer.encode(self.fields[i+1])
+                        )-2
+                    ]))
+                else:
+                    values.append(
+                        self.tokenizer.decode(
+                            generated_sequence[output_indexes[i]:-1]
+                            )
+                    )
+
+        confidences = []
+        for j in range(len(output_indexes)):
+            if output_indexes[j] == -1:
+                confidences.append(np.float64(1))
+            else:
+                out_prob = distributions[output_indexes[j]]
+                confidences.append(np.max(out_prob))
+
+        return values, confidences
