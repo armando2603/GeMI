@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from model import Predictor
 from forked_lime.lime.lime_text import LimeTextExplainer
 import numpy as np
@@ -10,7 +10,7 @@ DEBUG = True
 
 app = Flask(__name__)
 app.config.from_object(__name__)
-CORS(app, support_credentials=True)
+CORS(app)
 pred = Predictor()
 
 
@@ -489,6 +489,7 @@ def storeJSON():
 
 
 @app.route('/uploader', methods=['POST'])
+@cross_origin()
 def upload():
     dataset_type = request.headers['Dataset']
     for fname in request.files:
