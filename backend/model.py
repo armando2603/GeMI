@@ -279,8 +279,9 @@ class Predictor:
         table_json = []
         with torch.no_grad():
             for it, input_text in enumerate(list_input_text):
+                print(input_text)
                 input_ids = self.tokenizer.encode(input_text, return_tensors='pt')
-                input_ids.to(self.device)
+                input_ids = input_ids.to(self.device)
                 end_id = self.tokenizer.encode(' $')[0]
                 predicted_token = 0
                 generated_sequence = []

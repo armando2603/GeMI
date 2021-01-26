@@ -27,6 +27,7 @@ def CallModel():
     #         input_text = input_text[:-2] + '='
     # elif data['exp_id'] == 2:
     input_text = inputs_data[0]['values'][0]['text'] + ' ='
+    inputs_ids_all = pred.tokenizer.encode(input_text)
     output_fields = data['output_fields']
     pred.fields = [' ' + field for field in output_fields]
     output_fields = [' ' + field for field in output_fields]
@@ -113,7 +114,6 @@ def CallModel():
             input_tokens
         )
     )
-
     gradient_inputs = []
     for j in range(len(output_indexes)):
         if j < len(output_indexes) - 1:
@@ -199,7 +199,7 @@ def CallModel():
     response = {
         'outputs': outputs,
         'attentions': np.round(pred.attentions[
-            :, :, len(input_ids) + 1:, :len(input_ids)
+            :, :, len(inputs_ids_all):, :len(input_ids)
         ], 6).tolist(),
         'output_indexes': output_indexes.tolist(),
         'gradient': gradient_inputs
@@ -320,9 +320,10 @@ def AttentionParse():
                 ]
             else:
                 scores = attentions[
-                    output_indexes[j]:-1, :
+                    output_indexes[j]:, :
                 ]
             scores = np.mean(scores, axis=0)
+            # print(f'per il field {output_fields[j]} index: {output_indexes[j]}')
     #         filtered_scores = []
 
     #         for i in range(len(values_indexes)):
