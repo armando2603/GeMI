@@ -757,7 +757,7 @@ export default {
     count_warns (row) {
       var nWarn = 0
       for (var field of this.output_fields[this.datasetType]) {
-        if (row.fields[field].confidence < 0.85 && row.fields[field].value !== ' none' && row.fields[field].value !== ' unknown' && row.fields[field].value !== '<missing>') {
+        if (row.fields[field].confidence < 0.85 && row.fields[field].value !== ' None' && row.fields[field].value !== ' unknown' && row.fields[field].value !== '<missing>') {
           nWarn += 1
         }
       }
