@@ -89,7 +89,7 @@ class Predictor:
         #     new_state_dict[name] = v
         # self.model_1.load_state_dict(new_state_dict)
 
-        state_dict = torch.load('Models/checkpoint_1-epoch=14-val_loss=0.129.ckpt')['state_dict']
+        state_dict = torch.load('Models/checkpoint_1-epoch=16-val_loss=0.130.ckpt')['state_dict']
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
             if k[:6] == 'model.':
