@@ -40,3 +40,5 @@ yarn-error.log*
 *.sln
 *.ckpt
 *.pth
+backend/data/*
+demo/scripts/*.json

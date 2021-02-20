@@ -44,73 +44,19 @@ class Predictor:
         self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'gpt2'
-        self.model_1 = GPT2LMHeadModel.from_pretrained(
-            'gpt2',
-            output_attentions=True,
-            return_dict=True
-        )
-        self.model_2 = GPT2LMHeadModel.from_pretrained(
+        self.model_3 = GPT2LMHeadModel.from_pretrained(
             model_name,
             output_attentions=True,
             return_dict=True
         )
-        # self.model_3 = GPT2LMHeadModel.from_pretrained(
-        #     model_name,
-        #     output_attentions=True,
-        #     return_dict=True
-        # )
-        self.tokenizer_3 = GPT2Tokenizer.from_pretrained(model_name)
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.tokenizer.add_special_tokens({'pad_token': '<pad>'})
 
-        self.model_1.resize_token_embeddings(len(self.tokenizer))
-        self.model_2.resize_token_embeddings(len(self.tokenizer))
-        # self.model_3.resize_token_embeddings(len(self.tokenizer_3))
+        # self.model_1.resize_token_embeddings(len(self.tokenizer))
+        # self.model_2.resize_token_embeddings(len(self.tokenizer))
+        self.model_3.resize_token_embeddings(len(self.tokenizer))
 
-        # self.model_1.load_state_dict(
-        #     torch.load(
-        #         'Trained_Model.pth',
-        #         map_location=torch.device(self.device)
-        #     )
-        # )
-        # self.model_2.load_state_dict(
-        #     torch.load(
-        #         'Trained_Model_2.pth',
-        #         map_location=torch.device(self.device)
-        #     )
-        # )
-        # state_dict = torch.load('Models/checkpoint_1-epoch=16-val_loss=0.12.ckpt')['state_dict']
-        # new_state_dict = OrderedDict()
-        # for k, v in state_dict.items():
-        #     if k[:6] == 'model.':
-        #         name = k[6:]
-        #     else:
-        #         name = k
-        #     new_state_dict[name] = v
-        # self.model_1.load_state_dict(new_state_dict)
-
-        state_dict = torch.load('Models/checkpoint_1-epoch=16-val_loss=0.130.ckpt')['state_dict']
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            if k[:6] == 'model.':
-                name = k[6:]
-            else:
-                name = k
-            new_state_dict[name] = v
-        self.model_1.load_state_dict(new_state_dict)
-
-        checkpoint = torch.load('Models/checkpoint_2-epoch=13-val_loss=0.08.ckpt')
-        state_dict = checkpoint['state_dict']
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            if k[:6] == 'model.':
-                name = k[6:]
-            else:
-                name = k
-            new_state_dict[name] = v
-        self.model_2.load_state_dict(new_state_dict)
-
-        # checkpoint = torch.load('checkpoint-epoch=42-val_loss=0.63.pth')
+        # checkpoint = torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
         # state_dict = checkpoint['state_dict']
         # new_state_dict = OrderedDict()
         # for k, v in state_dict.items():
@@ -120,15 +66,22 @@ class Predictor:
         #         name = k
         #     new_state_dict[name] = v
         # self.model_3.load_state_dict(new_state_dict)
+        # torch.save(self.model_3.state_dict(), 'Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
 
-        # self.model_3.eval()
-        # self.model_3.to(self.device)
+        self.model_3.load_state_dict(
+            torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
+        )
 
-        self.model_1.eval()
-        self.model_1.to(self.device)
-        self.model_2.eval()
-        self.model_2.to(self.device)
+        self.model_3.eval()
+        self.model_3.to(self.device)
 
+        self.model_1 = self.model_3
+        self.model_2 = self.model_3
+        # self.model_1.eval()
+        # self.model_1.to(self.device)
+        # self.model_2.eval()
+
+        # self.model_2.to(self.device)
     def predict(self, list_input_text):
         assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
         if self.model_id == 1:
@@ -139,8 +92,6 @@ class Predictor:
             self.model = self.model_3
         list_idx = []
         for i, input_text in enumerate(list_input_text):
-            # if input_text[-1] != '=' and input_text[-1] != ' ':
-            #     input_text += ' ='
             end_id = self.tokenizer.encode(' $')[0]
             print(input_text)
             indexed_tokens = self.tokenizer.encode(
@@ -163,8 +114,8 @@ class Predictor:
             predicted_token = 0
 
             while(predicted_token != self.tokenizer.pad_token_id
-                        and predicted_token != end_id
-                        and len(generated_sequence) < 300):
+                    and predicted_token != end_id
+                    and len(generated_sequence) < 300):
 
                 inputs_embeds, token_ids_tensor_one_hot = \
                     self._get_embeddings(input_ids[0])
@@ -203,7 +154,6 @@ class Predictor:
             print(self.tokenizer.decode(generated_sequence))
 
             self.indexes = []
-            # self.fields[0] = self.fields[0][1:]
             for field in self.fields:
                 field_tokens = np.array(self.tokenizer.encode(field))
                 generated_sequence = np.array(generated_sequence)
@@ -244,8 +194,29 @@ class Predictor:
                 if self.indexes[j] == -1:
                     self.confidences.append(1)
                 else:
+                    # confidence 1st token
                     out_prob = distributions[self.indexes[j]]
                     self.confidences.append(np.max(out_prob))
+
+                    # confidence as mul of confidences
+                    # if j < len(indexes) - 1:
+                    #     out_prob = distributions[
+                    #         self.indexes[j]:self.indexes[j+1]
+                    #         - len(
+                    #             self.tokenizer.encode(self.fields[j+1])
+                    #         ) - 2
+                    #     ]
+                    #     self.confidences.append(np.multiply.reduce(
+                    #         np.max(out_prob, 1),
+                    #         0
+                    #     ))
+                    # else:
+                    #     out_prob = distributions[self.indexes[j]:-1]
+                    #     self.confidences.append(np.multiply.reduce(
+                    #         np.max(out_prob, 1),
+                    #         0
+                    #     ))
+
         results_array = np.array(results)
         self.generated_sequence_ids = generated_sequence
         return results_array
@@ -376,7 +347,26 @@ class Predictor:
             if output_indexes[j] == -1:
                 confidences.append(np.float64(1))
             else:
+                # confidence 1st token
                 out_prob = distributions[output_indexes[j]]
                 confidences.append(np.max(out_prob))
+                # confidence as mul of confidences
+                # if j < len(indexes) - 1:
+                #     out_prob = distributions[
+                #         output_indexes[j]:output_indexes[j+1]
+                #         - len(
+                #             self.tokenizer.encode(self.fields[j+1])
+                #         ) - 2
+                #     ]
+                #     confidences.append(np.multiply.reduce(
+                #         np.max(out_prob, 1),
+                #         0
+                #     ))
+                # else:
+                #     out_prob = distributions[output_indexes[j]:-1]
+                #     confidences.append(np.multiply.reduce(
+                #         np.max(out_prob, 1),
+                #         0
+                #     ))
 
         return values, confidences

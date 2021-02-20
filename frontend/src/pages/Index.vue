@@ -152,6 +152,18 @@
               <div class="text-h6 text-primary q-pb-sm q-pl-md">Selected Input Data</div>
             </div>
             <div class='justify-evenly row' style='height: 8px'>
+            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='blue-4' stack-label>
+              <template v-slot:control>
+                <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
+                  {{id}}
+                </div>
+              </template>
+              <template v-slot:label>
+                <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
+                  Index
+                </div>
+              </template>
+            </q-field>
             <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='orange-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
@@ -471,7 +483,7 @@ export default {
         1: [],
         2: []
       },
-      selected: [{ id: '' }],
+      selected: [{ id: 'none' }],
       pagination: {
         rowsPerPage: 200,
         sortBy: 'warnings',
@@ -618,8 +630,6 @@ export default {
 
       for (const x of Array(this.limeResults.length).keys()) {
         this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
-        this.limeResults[x][1] = [{ text: '', color: 'bg-grey-3' }]
-        this.limeResults[x][2] = [{ text: '', color: 'bg-grey-3' }]
       }
       for (const x of Array(this.inputs.length).keys()) {
         this.inputs[x].values = [{ text: '', color: 'bg-white' }]

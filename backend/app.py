@@ -403,11 +403,8 @@ def AttentionParse():
 @app.route('/Lime', methods=['POST'])
 def Lime():
     data = request.get_json()
-    inp_data = data['inputs']
-    input_text = ' '
-    for element in inp_data:
-        input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
-    input_text = input_text[:-2] + '='
+    inputs_data = data['inputs']
+    input_text = inputs_data[0]['values'][0]['text'] + ' ='
     class_names = [pred.tokenizer.decode([x]) for x in range(len(pred.tokenizer))]
     explainer = LimeTextExplainer(class_names=class_names)
     pred.fields = [' ' + data['field']]
@@ -419,7 +416,7 @@ def Lime():
     print(f'The top class is {pred.tokenizer.decode(list(label))}')
     weight_list = exp.as_list(label=label[0])
     result = [[], [], []]
-    splits = [[inp_data[i]["values"][0]["text"]] for i in range(len(inp_data))]
+    splits = [[inputs_data[i]["values"][0]["text"]] for i in range(len(inputs_data))]
     # print(weight_list)
     max_scores = {'negative': 0, 'positive': 0}
     for (word, score) in weight_list:
@@ -429,7 +426,7 @@ def Lime():
         else:
             if abs(score) > max_scores['negative']:
                 max_scores['negative'] = abs(score)
-        for i in range(len(inp_data)):
+        for i in range(len(inputs_data)):
             new_split = []
             # print(splits[i])
             for element in splits[i]:
