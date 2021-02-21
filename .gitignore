@@ -40,5 +40,7 @@ yarn-error.log*
 *.sln
 *.ckpt
 *.pth
-backend/data/*
+backend/data/*.json
 demo/scripts/*.json
+backend/data/GEO/*.txt
+backend/data/GEO/*.gz

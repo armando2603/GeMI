@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
 from model import Predictor
 from forked_lime.lime.lime_text import LimeTextExplainer
+from GEOparse import get_GEO
 import numpy as np
 import json
 
@@ -500,16 +501,136 @@ def upload():
 def generateTable():
     data = request.get_json()
     output_fields = data['output_fields']
+    input_data = data['data']
+
+    input_list = []
+    for gsm in input_data:
+        text_list = [
+            gsm['title'],
+            gsm['sample_type'],
+            gsm['source_name'],
+            gsm['organism'],
+            gsm['characteristics'],
+            gsm['description']
+        ]
+        input_text = ' '.join(text_list) + ' ='
+        input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
+        input_list.append(input_dict)
+
     dataset_type = str(data['exp_id'])
     pred.fields = [' ' + field for field in output_fields]
     pred.model_id = data['exp_id']
-    with open('data/input_' + dataset_type + '.json') as f:
-        input_list = json.load(f)
-    input_list = [text + ' =' for text in input_list]
+    # with open('data/input_' + dataset_type + '.json') as f:
+    #     input_list = json.load(f)
+    # input_list = [text + ' =' for text in input_list]
     table_json = pred.generateTable(input_list)
     with open('data/table_' + dataset_type + '.json', 'w') as outfile:
         json.dump(table_json, outfile)
     return 'Okay!'
+
+
+@app.route('/searchGEO', methods=['POST'])
+def searchGEO():
+    data = request.get_json()
+    search_list = data['searchList']
+    search_type = data['type']
+
+    GEO_table = []
+    if search_type == 'GSM':
+        for gsm in search_list:
+            gsm_data = get_GEO(geo=gsm, destdir='data/GEO')
+            description = (
+                ' - '.join(gsm_data.metadata['description'])
+                if 'description' in gsm_data.metadata.keys()
+                else ''
+            )
+            title = (
+                ' - '.join(gsm_data.metadata['title'])
+                if 'title' in gsm_data.metadata.keys()
+                else ''
+            )
+            sample_type = (
+                ' - '.join(gsm_data.metadata['type'])
+                if 'type' in gsm_data.metadata.keys()
+                else ''
+            )
+            source_name = (
+                ' - '.join(gsm_data.metadata['source_name_ch1'])
+                if 'source_name_ch1' in gsm_data.metadata.keys()
+                else ''
+            )
+            organism = (
+                ' - '.join(gsm_data.metadata['organism_ch1'])
+                if 'organism_ch1' in gsm_data.metadata.keys()
+                else ''
+            )
+            characteristics = (
+                ' - '.join(gsm_data.metadata['characteristics_ch1'])
+                if 'characteristics_ch1' in gsm_data.metadata.keys()
+                else ''
+            )
+            GEO_table.append(
+                dict(
+                    GSM=gsm,
+                    GSE=gsm_data.metadata['series_id'],
+                    title=title,
+                    sample_type=sample_type,
+                    source_name=source_name,
+                    organism=organism,
+                    characteristics=characteristics,
+                    description=description,
+                )
+            )
+    elif search_type == 'GSE':
+        for gse in search_list:
+            gse_data = get_GEO(geo=gse, destdir='data/GEO')
+
+            for gsm in gse_data.metadata['sample_id']:
+                gsm_data = gse_data.gsms[gsm]
+                description = (
+                    ' - '.join(gsm_data.metadata['description'])
+                    if 'description' in gsm_data.metadata.keys()
+                    else ''
+                )
+                title = (
+                    ' - '.join(gsm_data.metadata['title'])
+                    if 'title' in gsm_data.metadata.keys()
+                    else ''
+                )
+                sample_type = (
+                    ' - '.join(gsm_data.metadata['type'])
+                    if 'type' in gsm_data.metadata.keys()
+                    else ''
+                )
+                source_name = (
+                    ' - '.join(gsm_data.metadata['source_name_ch1'])
+                    if 'source_name_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                organism = (
+                    ' - '.join(gsm_data.metadata['organism_ch1'])
+                    if 'organism_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                characteristics = (
+                    ' - '.join(gsm_data.metadata['characteristics_ch1'])
+                    if 'characteristics_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                GEO_table.append(
+                    dict(
+                        GSM=gsm,
+                        GSE=gsm_data.metadata['series_id'],
+                        title=title,
+                        sample_type=sample_type,
+                        source_name=source_name,
+                        organism=organism,
+                        characteristics=characteristics,
+                        description=description,
+                    )
+                )
+
+    return jsonify(GEO_table)
 
 
 if __name__ == '__main__':

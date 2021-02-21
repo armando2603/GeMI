@@ -239,7 +239,7 @@ class Predictor:
         inputs_embeds = torch.matmul(token_ids_tensor_one_hot, embedding_matrix)
         return inputs_embeds, token_ids_tensor_one_hot
 
-    def generateTable(self, list_input_text):
+    def generateTable(self, list_input_dict):
         assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
         if self.model_id == 1:
             self.model = self.model_1
@@ -249,9 +249,9 @@ class Predictor:
             self.model = self.model_3
         table_json = []
         with torch.no_grad():
-            for it, input_text in enumerate(list_input_text):
+            for it, input_dict in enumerate(list_input_dict):
                 # print(input_text)
-                input_ids = self.tokenizer.encode(input_text, return_tensors='pt')
+                input_ids = self.tokenizer.encode(input_dict['input_text'], return_tensors='pt')
                 input_ids = input_ids.to(self.device)
                 end_id = self.tokenizer.encode(' $')[0]
                 predicted_token = 0
@@ -284,7 +284,9 @@ class Predictor:
                 table_json.append(
                     dict(
                         id=it,
-                        input=input_text[:-2],
+                        GSE=input_dict['GSE'],
+                        GSM=input_dict['GSM'],
+                        input=input_dict['input_text'][:-2],
                         prediction_text=self.tokenizer.decode(generated_sequence),
                         fields=fields_dict
                     )

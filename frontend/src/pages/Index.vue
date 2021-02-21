@@ -52,17 +52,14 @@
                   @click="uploadSamples=true"
                 />
                 <q-dialog v-model="uploadSamples" persistent transition-show="scale" transition-hide="scale">
-                  <q-card style="width: 510px" class="text-primary">
+                  <q-card style="max-width: 95%; max-height: 100%" class="text-primary">
                     <q-card-section class='row items-center'>
-                      <div class="text-h6">Upload Samples</div>
+                      <div class="text-h6">Load Samples</div>
                       <q-space />
                       <q-btn icon="close" @click="disableLoadSamples=true; show_error=false" flat round dense v-close-popup />
                     </q-card-section>
-                    <q-card-section class="q-pt-none">
-                      Upload a json file with a list of samples, e.g json = ['sample1', 'sample2']
-                    </q-card-section>
-                    <q-card-section class="row items-start">
-                      <div class='q-pr-md q-pt-sm'>Select dataset type:</div>
+                    <!-- <q-card-section class="row items-start">
+                      <div class='q-pr-md q-pt-sm text-grey-8'>Select dataset type :</div>
                       <q-btn-toggle
                         v-model="datasetType"
                         class="toggle"
@@ -81,33 +78,70 @@
                           {label: '2', value: 2}
                         ]"
                       />
+                    </q-card-section> -->
+                    <div class="row justify-start q-ml-md">
+                      <div class="text-grey-8 q-mt-sm">
+                        Select a Type of input :
+                      </div>
+                      <div class="row">
+                        <q-radio v-model="GEOType" val="GSM" label="GSM" />
+                        <q-radio v-model="GEOType" val="GSE" label="GSE" />
+                      </div>
+                    </div>
+                    <q-card-section class="row justify-start">
+                      <div class="q-mr-md q-mt-md text-grey-8">
+                        {{'Insert a list of ' + ((GEOType === 'GSE') ? 'GSES':'GSMS') + ' :'}}
+                      </div>
+                      <div style="width: 80%">
+                        <q-input outlined type='textarea' style="width:100%; max-height: 80px" v-model="GEO_list_text" stack-label :placeholder="(GEOType === 'GSE') ? 'e.g GSE84422, GSE133349...' : 'e.g GSM2233519, GSM2233521...'"/>
+                      </div>
                     </q-card-section>
-                    <q-card-section class='row justify-evenly'>
-                      <q-uploader
-                        :url="backendIP + '/uploader'"
-                        :headers="[{name: 'Dataset', value: datasetType}]"
-                        style="max-width: 300px"
-                        accept=".json"
-                        max-files="1"
-                        hide-upload-btn
-                        auto-upload
-                        @uploaded='disableLoadSamples=false'
-                      />
-                    </q-card-section>
-                    <q-card-section class='row justify-evenly'>
+                    <div class='q-p-none q-m-none row justify-evenly'>
                       <div class="text-h6 text-red" v-if="show_error">{{error_text}}</div>
-                    </q-card-section>
-                    <q-card-section class='row justify-evenly'>
+                    </div>
+                    <div class='row justify-evenly'>
                       <q-btn
                         rounded
-                        :disable='disableLoadSamples'
+                        color="primary"
+                        label="Search Samples"
+                        no-caps
+                        @click="searchSamples()"
+                        :loading="searchingSamples"
+                      />
+                    </div>
+                    <q-card-section class='row justify-evenly' style="max-height: 100%">
+                      <template>
+                        <div class="q-pa-md">
+                          <q-table
+                            style="max-width: 99%; max-height: 500px"
+                            table-header-class='text-primary'
+                            title-class='text-primary text-h6'
+                            color='primary'
+                            table-class='text-grey-8'
+                            wrap-cells
+                            separator="cell"
+                            virtual-scroll
+                            row-key="GSM"
+                            title="GSMS metadata"
+                            :data="GSMS_data"
+                            :pagination.sync="paginationGSMS"
+                            :columns="GSMS_columns"
+                            hide-bottom
+                          />
+                        </div>
+                      </template>
+                    </q-card-section>
+                    <div class='row q-ma-md justify-evenly'>
+                      <q-btn
+                        rounded
                         color="primary"
                         label="Load Samples"
                         no-caps
+                        :disable="GSMS_data.length === 0"
                         @click="loadSamples()"
                         :loading="loadingSamples"
                       />
-                    </q-card-section>
+                    </div>
                   </q-card>
                 </q-dialog>
               </div>
@@ -424,8 +458,30 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      GEOType: 'GSE',
+      GSMS_data: [],
+      GSMS_columns: [
+        {
+          name: 'GSM',
+          required: true,
+          label: 'GSM',
+          align: 'center',
+          field: row => row.GSM,
+          format: val => `${val}`,
+          sortable: false
+        },
+        { name: 'GSE', label: 'GSE', align: 'center', field: row => row.GSE, format: val => `${val}` },
+        { name: 'title', label: 'title', align: 'left', field: row => row.title, format: val => `${val}` },
+        { name: 'sample_type', label: 'Sample Type', align: 'left', field: row => row.sample_type, format: val => `${val}` },
+        { name: 'source_name', label: 'Source Name', align: 'left', field: row => row.source_name, format: val => `${val}` },
+        { name: 'organism', label: 'Organism', align: 'left', field: row => row.organism, format: val => `${val}` },
+        { name: 'characteristics', label: 'Characteristics', align: 'left', field: row => row.characteristics, format: val => `${val}` },
+        { name: 'description', label: 'Description', align: 'left', field: row => row.description, format: val => `${val}` }
+      ],
+      GEO_list_text: '',
       show_error: false,
       error_text: '',
+      searchingSamples: false,
       loadingSamples: false,
       disableLoadSamples: true,
       uploadSamples: false,
@@ -443,7 +499,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003
-      backendIP: 'http://10.79.23.5:5003',
+      backendIP: 'http://localhost:5003',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -489,6 +545,7 @@ export default {
         sortBy: 'warnings',
         descending: true
       },
+      paginationGSMS: { rowsPerPage: 50 },
       columns: [
         {
           name: 'id',
@@ -535,6 +592,8 @@ export default {
           format: val => `${val}`,
           sortable: true
         },
+        { name: 'GSM', label: 'GSM', align: 'center', field: row => row.GSM, format: val => `${val}`, sortable: true },
+        { name: 'GSE', label: 'GSE', align: 'center', field: row => row.GSE, format: val => `${val}`, sortable: true },
         { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
         { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
         { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
@@ -818,14 +877,13 @@ export default {
       this.loadingSamples = true
       this.$axios.post(
         this.backendIP + '/generateTable',
-        { output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }
+        { output_fields: this.output_fields[2], exp_id: 2, data: this.GSMS_data }
       ).then(response => {
         this.$axios.get(this.backendIP + '/getJSONs')
           .then((response) => {
             this.dataset_json[1] = response.data[0]
             this.dataset_json[2] = response.data[1]
             this.loadingSamples = false
-            this.disableLoadSamples = true
             this.uploadSamples = false
             this.show_error = false
           }).catch(error => (error.message))
@@ -834,7 +892,29 @@ export default {
         this.disableLoadSamples = true
         this.show_error = true
         console.log(error)
-        this.error_text = 'Something went wrong'
+        this.error_text = 'Something went wrong with the loading'
+      })
+    },
+    searchSamples () {
+      if (this.GEO_list_text.trim() === '') {
+        this.GSMS_data = []
+        return
+      }
+      this.show_error = false
+      this.searchingSamples = true
+      const searchList = this.GEO_list_text.trim().split(',').map(elem => elem.trim())
+      console.log(searchList)
+      this.$axios.post(
+        this.backendIP + '/searchGEO',
+        { searchList: searchList, type: this.GEOType }
+      ).then(response => {
+        this.GSMS_data = response.data
+        this.searchingSamples = false
+      }).catch(error => {
+        console.log(error.message)
+        this.searchingSamples = false
+        this.show_error = true
+        this.error_text = 'Something went wrong, please control the input'
       })
     }
   },
