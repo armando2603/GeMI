@@ -662,7 +662,7 @@ export default {
           this.outputs = response.data.outputs
           this.gradientResults = response.data.gradient
           this.output_indexes = response.data.output_indexes
-          this.$axios.post(this.backendIP + '/AttentionParse', {
+          this.$axios.post(this.backendIP + '/ComputeAttention', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
             attentions: this.attentions,
@@ -789,7 +789,7 @@ export default {
     visualizeNewAggregation () {
       if (this.last_index !== 'no_index') {
         if (this.aggregationType === 3) {
-          this.$axios.post(this.backendIP + '/AttentionParse', {
+          this.$axios.post(this.backendIP + '/ComputeAttention', {
             inputs: this.inputs_api,
             output_fields: this.output_fields[this.datasetType],
             attentions: this.attentions,

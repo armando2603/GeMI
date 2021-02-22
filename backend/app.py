@@ -197,6 +197,9 @@ def CallModel():
                     ) for elem in gradient_input[i]
             ]
         gradient_inputs.append(gradient_input)
+    
+    # attention_results = AttentionParse
+
     response = {
         'outputs': outputs,
         'attentions': np.round(pred.attentions[
@@ -210,8 +213,8 @@ def CallModel():
     return jsonify(response)
 
 
-@app.route('/AttentionParse', methods=['POST'])
-def AttentionParse():
+@app.route('/ComputeAttention', methods=['POST'])
+def ComputeAttention():
     data = request.get_json()
     attentions = np.array(data['attentions'])
     inputs_data = data['inputs']
@@ -224,6 +227,265 @@ def AttentionParse():
     heads_op = data['headsCustomOp']
     layers_op = data['layersCustomOp']
     input_text = inputs_data[0]['values'][0]['text']
+
+    attention_inputs_list = AttentionParse(
+        attentions,
+        output_fields,
+        output_indexes,
+        aggregationType,
+        selected_heads,
+        selected_layers,
+        heads_op,
+        layers_op,
+        input_text,
+    )
+
+    response = {'attentions_results': attention_inputs_list}
+    return jsonify(response)
+
+
+@app.route('/Lime', methods=['POST'])
+def Lime():
+    data = request.get_json()
+    inputs_data = data['inputs']
+    input_text = inputs_data[0]['values'][0]['text'] + ' ='
+    class_names = [pred.tokenizer.decode([x]) for x in range(len(pred.tokenizer))]
+    explainer = LimeTextExplainer(class_names=class_names)
+    pred.fields = [' ' + data['field']]
+    pred.model_id = data['exp_id']
+    exp = explainer.explain_instance(
+        input_text, pred.predict, num_features=5, top_labels=1, num_samples=100
+    )
+    label = exp.available_labels()
+    print(f'The top class is {pred.tokenizer.decode(list(label))}')
+    weight_list = exp.as_list(label=label[0])
+    result = [[], [], []]
+    splits = [[inputs_data[i]["values"][0]["text"]] for i in range(len(inputs_data))]
+    # print(weight_list)
+    max_scores = {'negative': 0, 'positive': 0}
+    for (word, score) in weight_list:
+        if score > 0:
+            if score > max_scores['positive']:
+                max_scores['positive'] = score
+        else:
+            if abs(score) > max_scores['negative']:
+                max_scores['negative'] = abs(score)
+        for i in range(len(inputs_data)):
+            new_split = []
+            # print(splits[i])
+            for element in splits[i]:
+                split_word = element.split(word)
+                if len(split_word) > 1:
+                    for k, part in enumerate(split_word):
+                        if k == (len(split_word) - 1):
+                            new_split.append(part)
+                        else:
+                            new_split.append(part)
+                            new_split.append(word)
+                else:
+                    new_split.append(element)
+            splits[i] = new_split
+    words = [element[0] for element in weight_list]
+    # print(splits[0])
+    for i, split in enumerate(splits):
+        for element in split:
+            score_element = weight_list[words.index(element)][1]\
+                if element in words else 0
+            if score_element != 0:
+                if score_element > 0:
+                    sign = 'positive'
+                    color = 'green'
+                else:
+                    sign = 'negative'
+                    color = 'red'
+                # print(np.ceil(abs((score_element) / max_scores[sign])*5))
+                opacity = int(np.ceil(abs((score_element) / max_scores[sign])*5))\
+                    if max_scores[sign] > 0 else int(np.ceil(score_element))
+                result[i].append(
+                    dict(text=element, color=f'bg-{color}-{opacity}')
+                )
+            else:
+                result[i].append(dict(text=element, color='bg-white'))
+    return jsonify(result)
+
+
+@app.route('/getJSONs', methods=['GET'])
+def getJSONs():
+    with open('data/table_1.json') as f:
+        table_1 = json.load(f)
+    with open('data/table_2.json') as f:
+        table_2 = json.load(f)
+    return jsonify([table_1, table_2])
+
+
+@app.route('/storeJSON', methods=['POST'])
+def storeJSON():
+    data = request.get_json()
+    if data['table_id'] == 1:
+        with open('data/table_1.json', 'w') as f:
+            json.dump(data['table'], f)
+    elif data['table_id'] == 2:
+        with open('data/table_2.json', 'w') as f:
+            json.dump(data['table'], f)
+    return 'ok'
+
+
+@app.route('/uploader', methods=['POST'])
+@cross_origin()
+def upload():
+    dataset_type = request.headers['Dataset']
+    for fname in request.files:
+        f = request.files.get(fname)
+        f.save('data/input_' + dataset_type + '.json')
+    return 'Okay!'
+
+
+@app.route('/generateTable', methods=['POST'])
+def generateTable():
+    data = request.get_json()
+    output_fields = data['output_fields']
+    input_data = data['data']
+
+    input_list = []
+    for gsm in input_data:
+        text_list = [
+            # gsm['title'],
+            # gsm['sample_type'],
+            # gsm['source_name'],
+            # gsm['organism'],
+            gsm['characteristics'],
+            gsm['description']
+        ]
+        input_text = ' '.join(text_list) + ' ='
+        input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
+        input_list.append(input_dict)
+
+    dataset_type = str(data['exp_id'])
+    pred.fields = [' ' + field for field in output_fields]
+    pred.model_id = data['exp_id']
+    # with open('data/input_' + dataset_type + '.json') as f:
+    #     input_list = json.load(f)
+    # input_list = [text + ' =' for text in input_list]
+    table_json = pred.generateTable(input_list)
+    with open('data/table_' + dataset_type + '.json', 'w') as outfile:
+        json.dump(table_json, outfile)
+    return 'Okay!'
+
+
+@app.route('/searchGEO', methods=['POST'])
+def searchGEO():
+    data = request.get_json()
+    search_list = data['searchList']
+    search_type = data['type']
+
+    GEO_table = []
+    if search_type == 'GSM':
+        for gsm in search_list:
+            gsm_data = get_GEO(geo=gsm, destdir='data/GEO')
+            description = (
+                ' - '.join(gsm_data.metadata['description'])
+                if 'description' in gsm_data.metadata.keys()
+                else ''
+            )
+            title = (
+                ' - '.join(gsm_data.metadata['title'])
+                if 'title' in gsm_data.metadata.keys()
+                else ''
+            )
+            sample_type = (
+                ' - '.join(gsm_data.metadata['type'])
+                if 'type' in gsm_data.metadata.keys()
+                else ''
+            )
+            source_name = (
+                ' - '.join(gsm_data.metadata['source_name_ch1'])
+                if 'source_name_ch1' in gsm_data.metadata.keys()
+                else ''
+            )
+            organism = (
+                ' - '.join(gsm_data.metadata['organism_ch1'])
+                if 'organism_ch1' in gsm_data.metadata.keys()
+                else ''
+            )
+            characteristics = (
+                ' - '.join(gsm_data.metadata['characteristics_ch1'])
+                if 'characteristics_ch1' in gsm_data.metadata.keys()
+                else ''
+            )
+            GEO_table.append(
+                dict(
+                    GSM=gsm,
+                    GSE=gsm_data.metadata['series_id'],
+                    title=title,
+                    sample_type=sample_type,
+                    source_name=source_name,
+                    organism=organism,
+                    characteristics=characteristics,
+                    description=description,
+                )
+            )
+    elif search_type == 'GSE':
+        for gse in search_list:
+            gse_data = get_GEO(geo=gse, destdir='data/GEO')
+
+            for gsm in gse_data.metadata['sample_id']:
+                gsm_data = gse_data.gsms[gsm]
+                description = (
+                    ' - '.join(gsm_data.metadata['description'])
+                    if 'description' in gsm_data.metadata.keys()
+                    else ''
+                )
+                title = (
+                    ' - '.join(gsm_data.metadata['title'])
+                    if 'title' in gsm_data.metadata.keys()
+                    else ''
+                )
+                sample_type = (
+                    ' - '.join(gsm_data.metadata['type'])
+                    if 'type' in gsm_data.metadata.keys()
+                    else ''
+                )
+                source_name = (
+                    ' - '.join(gsm_data.metadata['source_name_ch1'])
+                    if 'source_name_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                organism = (
+                    ' - '.join(gsm_data.metadata['organism_ch1'])
+                    if 'organism_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                characteristics = (
+                    ' - '.join(gsm_data.metadata['characteristics_ch1'])
+                    if 'characteristics_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                GEO_table.append(
+                    dict(
+                        GSM=gsm,
+                        GSE=gsm_data.metadata['series_id'],
+                        title=title,
+                        sample_type=sample_type,
+                        source_name=source_name,
+                        organism=organism,
+                        characteristics=characteristics,
+                        description=description,
+                    )
+                )
+
+    return jsonify(GEO_table)
+
+def AttentionParse(
+    attentions,
+    output_fields,
+    output_indexes,
+    aggregationType,
+    selected_heads,
+    selected_layers,
+    heads_op,
+    layers_op,
+    input_text,
+):
     attentions_list = []
     if aggregationType == 'custom':
         if selected_heads.shape[0] == 0 or selected_layers.shape[0] == 0:
@@ -397,240 +659,7 @@ def AttentionParse():
                 ]
             attention_inputs.append(attention_input)
         attention_inputs_list.append(attention_inputs)
-    response = {'attentions_results': attention_inputs_list}
-    return jsonify(response)
-
-
-@app.route('/Lime', methods=['POST'])
-def Lime():
-    data = request.get_json()
-    inputs_data = data['inputs']
-    input_text = inputs_data[0]['values'][0]['text'] + ' ='
-    class_names = [pred.tokenizer.decode([x]) for x in range(len(pred.tokenizer))]
-    explainer = LimeTextExplainer(class_names=class_names)
-    pred.fields = [' ' + data['field']]
-    pred.model_id = data['exp_id']
-    exp = explainer.explain_instance(
-        input_text, pred.predict, num_features=5, top_labels=1, num_samples=100
-    )
-    label = exp.available_labels()
-    print(f'The top class is {pred.tokenizer.decode(list(label))}')
-    weight_list = exp.as_list(label=label[0])
-    result = [[], [], []]
-    splits = [[inputs_data[i]["values"][0]["text"]] for i in range(len(inputs_data))]
-    # print(weight_list)
-    max_scores = {'negative': 0, 'positive': 0}
-    for (word, score) in weight_list:
-        if score > 0:
-            if score > max_scores['positive']:
-                max_scores['positive'] = score
-        else:
-            if abs(score) > max_scores['negative']:
-                max_scores['negative'] = abs(score)
-        for i in range(len(inputs_data)):
-            new_split = []
-            # print(splits[i])
-            for element in splits[i]:
-                split_word = element.split(word)
-                if len(split_word) > 1:
-                    for k, part in enumerate(split_word):
-                        if k == (len(split_word) - 1):
-                            new_split.append(part)
-                        else:
-                            new_split.append(part)
-                            new_split.append(word)
-                else:
-                    new_split.append(element)
-            splits[i] = new_split
-    words = [element[0] for element in weight_list]
-    # print(splits[0])
-    for i, split in enumerate(splits):
-        for element in split:
-            score_element = weight_list[words.index(element)][1]\
-                if element in words else 0
-            if score_element != 0:
-                if score_element > 0:
-                    sign = 'positive'
-                    color = 'green'
-                else:
-                    sign = 'negative'
-                    color = 'red'
-                # print(np.ceil(abs((score_element) / max_scores[sign])*5))
-                opacity = int(np.ceil(abs((score_element) / max_scores[sign])*5))\
-                    if max_scores[sign] > 0 else int(np.ceil(score_element))
-                result[i].append(
-                    dict(text=element, color=f'bg-{color}-{opacity}')
-                )
-            else:
-                result[i].append(dict(text=element, color='bg-white'))
-    return jsonify(result)
-
-
-@app.route('/getJSONs', methods=['GET'])
-def getJSONs():
-    with open('data/table_1.json') as f:
-        table_1 = json.load(f)
-    with open('data/table_2.json') as f:
-        table_2 = json.load(f)
-    return jsonify([table_1, table_2])
-
-
-@app.route('/storeJSON', methods=['POST'])
-def storeJSON():
-    data = request.get_json()
-    if data['table_id'] == 1:
-        with open('data/table_1.json', 'w') as f:
-            json.dump(data['table'], f)
-    elif data['table_id'] == 2:
-        with open('data/table_2.json', 'w') as f:
-            json.dump(data['table'], f)
-    return 'ok'
-
-
-@app.route('/uploader', methods=['POST'])
-@cross_origin()
-def upload():
-    dataset_type = request.headers['Dataset']
-    for fname in request.files:
-        f = request.files.get(fname)
-        f.save('data/input_' + dataset_type + '.json')
-    return 'Okay!'
-
-
-@app.route('/generateTable', methods=['POST'])
-def generateTable():
-    data = request.get_json()
-    output_fields = data['output_fields']
-    input_data = data['data']
-
-    input_list = []
-    for gsm in input_data:
-        text_list = [
-            gsm['title'],
-            gsm['sample_type'],
-            gsm['source_name'],
-            gsm['organism'],
-            gsm['characteristics'],
-            gsm['description']
-        ]
-        input_text = ' '.join(text_list) + ' ='
-        input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
-        input_list.append(input_dict)
-
-    dataset_type = str(data['exp_id'])
-    pred.fields = [' ' + field for field in output_fields]
-    pred.model_id = data['exp_id']
-    # with open('data/input_' + dataset_type + '.json') as f:
-    #     input_list = json.load(f)
-    # input_list = [text + ' =' for text in input_list]
-    table_json = pred.generateTable(input_list)
-    with open('data/table_' + dataset_type + '.json', 'w') as outfile:
-        json.dump(table_json, outfile)
-    return 'Okay!'
-
-
-@app.route('/searchGEO', methods=['POST'])
-def searchGEO():
-    data = request.get_json()
-    search_list = data['searchList']
-    search_type = data['type']
-
-    GEO_table = []
-    if search_type == 'GSM':
-        for gsm in search_list:
-            gsm_data = get_GEO(geo=gsm, destdir='data/GEO')
-            description = (
-                ' - '.join(gsm_data.metadata['description'])
-                if 'description' in gsm_data.metadata.keys()
-                else ''
-            )
-            title = (
-                ' - '.join(gsm_data.metadata['title'])
-                if 'title' in gsm_data.metadata.keys()
-                else ''
-            )
-            sample_type = (
-                ' - '.join(gsm_data.metadata['type'])
-                if 'type' in gsm_data.metadata.keys()
-                else ''
-            )
-            source_name = (
-                ' - '.join(gsm_data.metadata['source_name_ch1'])
-                if 'source_name_ch1' in gsm_data.metadata.keys()
-                else ''
-            )
-            organism = (
-                ' - '.join(gsm_data.metadata['organism_ch1'])
-                if 'organism_ch1' in gsm_data.metadata.keys()
-                else ''
-            )
-            characteristics = (
-                ' - '.join(gsm_data.metadata['characteristics_ch1'])
-                if 'characteristics_ch1' in gsm_data.metadata.keys()
-                else ''
-            )
-            GEO_table.append(
-                dict(
-                    GSM=gsm,
-                    GSE=gsm_data.metadata['series_id'],
-                    title=title,
-                    sample_type=sample_type,
-                    source_name=source_name,
-                    organism=organism,
-                    characteristics=characteristics,
-                    description=description,
-                )
-            )
-    elif search_type == 'GSE':
-        for gse in search_list:
-            gse_data = get_GEO(geo=gse, destdir='data/GEO')
-
-            for gsm in gse_data.metadata['sample_id']:
-                gsm_data = gse_data.gsms[gsm]
-                description = (
-                    ' - '.join(gsm_data.metadata['description'])
-                    if 'description' in gsm_data.metadata.keys()
-                    else ''
-                )
-                title = (
-                    ' - '.join(gsm_data.metadata['title'])
-                    if 'title' in gsm_data.metadata.keys()
-                    else ''
-                )
-                sample_type = (
-                    ' - '.join(gsm_data.metadata['type'])
-                    if 'type' in gsm_data.metadata.keys()
-                    else ''
-                )
-                source_name = (
-                    ' - '.join(gsm_data.metadata['source_name_ch1'])
-                    if 'source_name_ch1' in gsm_data.metadata.keys()
-                    else ''
-                )
-                organism = (
-                    ' - '.join(gsm_data.metadata['organism_ch1'])
-                    if 'organism_ch1' in gsm_data.metadata.keys()
-                    else ''
-                )
-                characteristics = (
-                    ' - '.join(gsm_data.metadata['characteristics_ch1'])
-                    if 'characteristics_ch1' in gsm_data.metadata.keys()
-                    else ''
-                )
-                GEO_table.append(
-                    dict(
-                        GSM=gsm,
-                        GSE=gsm_data.metadata['series_id'],
-                        title=title,
-                        sample_type=sample_type,
-                        source_name=source_name,
-                        organism=organism,
-                        characteristics=characteristics,
-                        description=description,
-                    )
-                )
-
-    return jsonify(GEO_table)
+    return attention_inputs_list
 
 
 if __name__ == '__main__':
