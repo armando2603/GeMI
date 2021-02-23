@@ -33,6 +33,11 @@ def CallModel():
     pred.fields = [' ' + field for field in output_fields]
     output_fields = [' ' + field for field in output_fields]
     pred.model_id = data['exp_id']
+    aggregationType = data['aggregation_type']
+    selected_heads = np.array(data['selected_heads'])
+    selected_layers = np.array(data['selected_layers'])
+    heads_op = data['headsCustomOp']
+    layers_op = data['layersCustomOp']
     # print(input_text)
     pred.predict([input_text])
     input_text = input_text = inputs_data[0]['values'][0]['text']
@@ -40,6 +45,7 @@ def CallModel():
     output_ids = pred.generated_sequence_ids
     output_indexes = np.array(pred.indexes)
     input_ids = np.array(pred.tokenizer.encode(input_text))
+    # print(output_ids.shape)
 
     output_split = []
     for i in range(len(output_indexes)):
@@ -197,16 +203,31 @@ def CallModel():
                     ) for elem in gradient_input[i]
             ]
         gradient_inputs.append(gradient_input)
-    
-    # attention_results = AttentionParse
+
+    filtered_attentions = np.round(
+        pred.attentions[
+            :, :, len(inputs_ids_all):, :len(input_ids)
+        ], 6
+    )
+
+    attentions_results = AttentionParse(
+        input_text,
+        filtered_attentions,
+        output_fields,
+        output_indexes,
+        aggregationType,
+        selected_heads,
+        selected_layers,
+        heads_op,
+        layers_op
+    )
 
     response = {
         'outputs': outputs,
-        'attentions': np.round(pred.attentions[
-            :, :, len(inputs_ids_all):, :len(input_ids)
-        ], 6).tolist(),
+        # 'attentions': filtered_attentions.tolist(),
         'output_indexes': output_indexes.tolist(),
-        'gradient': gradient_inputs
+        'gradient': gradient_inputs,
+        'attentions_results': attentions_results
     }
     # print(response['attentions'][0][2])
     # print(jsonify(response))
@@ -229,6 +250,7 @@ def ComputeAttention():
     input_text = inputs_data[0]['values'][0]['text']
 
     attention_inputs_list = AttentionParse(
+        input_text,
         attentions,
         output_fields,
         output_indexes,
@@ -236,8 +258,7 @@ def ComputeAttention():
         selected_heads,
         selected_layers,
         heads_op,
-        layers_op,
-        input_text,
+        layers_op
     )
 
     response = {'attentions_results': attention_inputs_list}
@@ -349,14 +370,20 @@ def generateTable():
     input_list = []
     for gsm in input_data:
         text_list = [
-            # gsm['title'],
-            # gsm['sample_type'],
-            # gsm['source_name'],
             # gsm['organism'],
             gsm['characteristics'],
-            gsm['description']
+            gsm['description'],
+            gsm['title'],
+            gsm['source_name'],
+            # gsm['sample_type'],
         ]
+
         input_text = ' '.join(text_list) + ' ='
+        input_text_words = input_text.split(' ')
+        input_text_words = [
+            word if len(word) < 30 else '' for word in input_text_words
+        ]
+        input_text = ' '.join(input_text_words)
         input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
         input_list.append(input_dict)
 
@@ -475,7 +502,9 @@ def searchGEO():
 
     return jsonify(GEO_table)
 
+
 def AttentionParse(
+    input_text,
     attentions,
     output_fields,
     output_indexes,
@@ -483,8 +512,7 @@ def AttentionParse(
     selected_heads,
     selected_layers,
     heads_op,
-    layers_op,
-    input_text,
+    layers_op
 ):
     attentions_list = []
     if aggregationType == 'custom':
@@ -600,6 +628,7 @@ def AttentionParse(
     #                 filtered_scores += list(scores[values_indexes[i]:-1])
             scores[0] = 0
             max_scores = np.max(scores)
+            # print(scores)
             max_scores = 1 if max_scores == 0.0 else max_scores
             scores = scores / max_scores
             # print(f'{output_fields[j]}')
