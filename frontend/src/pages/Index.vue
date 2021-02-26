@@ -21,6 +21,7 @@
             :pagination.sync="pagination"
             :selected-rows-label="getEmptyString"
             bordered
+            @selection='searchData'
           >
             <template v-slot:top>
               <div class="text-h6 text-primary q-pl-md">Dataset</div>
@@ -182,9 +183,9 @@
               This id is not valid
             </template>
           </q-input> -->
-          <div class='q-pl-md q-pt-md q-pb-md'>
+          <!-- <div class='q-pl-md q-pt-md q-pb-md'>
             <q-btn round icon='search' color="primary" @click='searchData'/>
-          </div>
+          </div> -->
           <div class='q-pl-md q-pt-md q-pb-md'>
             <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
           </div>
@@ -548,7 +549,7 @@ export default {
         1: [],
         2: []
       },
-      selected: [{ id: 'none' }],
+      selected: [{ id: '0' }],
       pagination: {
         rowsPerPage: 200,
         sortBy: 'warnings',
