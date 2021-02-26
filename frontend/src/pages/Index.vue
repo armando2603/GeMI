@@ -21,10 +21,10 @@
             :pagination.sync="pagination"
             :selected-rows-label="getEmptyString"
             bordered
-            @selection='searchData'
+            @update:selected ='searchData'
           >
             <template v-slot:top>
-              <!-- <div class="text-h6 text-primary q-pl-md">Dataset</div> -->
+              <div class="text-h6 text-primary q-pl-md">Dataset</div>
               <!-- <div class='q-pl-md'>
                 <q-btn-toggle
                   v-model="datasetType"
@@ -59,7 +59,7 @@
                       <q-space />
                       <q-btn icon="close" @click="disableLoadSamples=true; show_error=false" flat round dense v-close-popup />
                     </q-card-section>
-                    <!-- <q-card-section class="row items-start">
+                    <q-card-section class="row items-start">
                       <div class='q-pr-md q-pt-sm text-grey-8'>Select dataset type :</div>
                       <q-btn-toggle
                         v-model="datasetType"
@@ -79,7 +79,7 @@
                           {label: '2', value: 2}
                         ]"
                       />
-                    </q-card-section> -->
+                    </q-card-section>
                     <div class="row justify-start q-ml-md">
                       <div class="text-grey-8 q-mt-sm">
                         Select a Type of input :
@@ -153,6 +153,13 @@
                   label="Export json"
                   no-caps
                   @click="exportTable"
+                />
+              </div>
+              <div class='q-pl-md' style="">
+                <q-btn
+                  rounded
+                  color="primary"
+                  label="Import json"
                 />
               </div>
               <div class='q-pl-md'>
@@ -264,8 +271,7 @@
             text-color="primary"
             :options="[
               {label: 'Gradient', value: 'gradient'},
-              {label: 'Attention', value: 'attention'},
-              {label: 'Lime', value: 'lime'}
+              {label: 'Attention', value: 'attention'}
             ]"
           />
           <q-toggle
@@ -549,7 +555,7 @@ export default {
         1: [],
         2: []
       },
-      selected: [{ id: 0 }],
+      selected: [{ id: null }],
       pagination: {
         rowsPerPage: 200,
         sortBy: 'warnings',
@@ -704,7 +710,7 @@ export default {
         }).catch(error => (error.message))
       }
     },
-    searchData () {
+    searchData (newSelected) {
       this.limeComputed = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
       this.gpt2Computed = false
       this.editcard = false
@@ -806,7 +812,7 @@ export default {
       }
       this.gpt2Computed = false
       this.outputs = []
-      this.selected = [{ id: 0 }]
+      this.selected = [{ id: null }]
       this.isValid = true
     },
     visualizeNewAggregation () {
