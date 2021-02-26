@@ -24,7 +24,7 @@
           >
             <template v-slot:top>
               <div class="text-h6 text-primary q-pl-md">Dataset</div>
-              <div class='q-pl-md'>
+              <!-- <div class='q-pl-md'>
                 <q-btn-toggle
                   v-model="datasetType"
                   class="toggle"
@@ -42,7 +42,7 @@
                     {label: '2', value: 2}
                   ]"
                 />
-              </div>
+              </div> -->
               <div class='q-pl-md'>
                 <q-btn
                   rounded
@@ -152,6 +152,15 @@
                   label="Export json"
                   no-caps
                   @click="exportTable"
+                />
+              </div>
+              <div class='q-pl-md'>
+                <q-btn
+                  rounded
+                  color="red-4"
+                  label="Delete Table"
+                  no-caps
+                  @click="deleteTable()"
                 />
               </div>
           </template>
@@ -526,7 +535,7 @@ export default {
       hideNone: true,
       last_index: 'no_index',
       showGeoInput: true,
-      datasetType: 1,
+      datasetType: 2,
       typeInterpreter: 'gradient',
       disableGpt2button: true,
       loadGpt2: false,
@@ -929,6 +938,20 @@ export default {
         this.show_error = true
         this.error_text = 'Something went wrong, please control the input'
       })
+    },
+    deleteTable () {
+      this.$axios.post(
+        this.backendIP + '/deleteTable',
+        { table_id: this.datasetType }
+      ).then((response) => {
+        this.$axios.get(this.backendIP + '/getJSONs')
+          .then((response) => {
+            this.dataset_json[1] = response.data[0]
+            this.dataset_json[2] = response.data[1]
+          }).catch(error => (error.message))
+      }).catch(error => {
+        console.log(error.message)
+      })
     }
   },
   created () {
@@ -936,6 +959,7 @@ export default {
       .then((response) => {
         this.dataset_json[1] = response.data[0]
         this.dataset_json[2] = response.data[1]
+        this.resetPage()
       }).catch(error => (error.message))
   }
 }

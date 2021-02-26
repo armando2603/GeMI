@@ -361,6 +361,16 @@ def upload():
     return 'Okay!'
 
 
+@app.route('/deleteTable', methods=['POST'])
+@cross_origin()
+def deleteTable():
+    data = request.get_json()
+    dataset_type = str(data['table_id'])
+    with open('data/table_' + dataset_type + '.json', 'w') as file:
+        json.dump([], file)
+    return 'Okay!'
+
+
 @app.route('/generateTable', methods=['POST'])
 def generateTable():
     data = request.get_json()
@@ -383,6 +393,9 @@ def generateTable():
         input_text_words = [
             word if len(word) < 30 else '' for word in input_text_words
         ]
+        input_text_words = [
+            word if set(word) != {'*'} else '' for word in input_text_words
+        ]
         input_text = ' '.join(input_text_words)
         input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
         input_list.append(input_dict)
@@ -393,9 +406,18 @@ def generateTable():
     # with open('data/input_' + dataset_type + '.json') as f:
     #     input_list = json.load(f)
     # input_list = [text + ' =' for text in input_list]
-    table_json = pred.generateTable(input_list)
-    with open('data/table_' + dataset_type + '.json', 'w') as outfile:
-        json.dump(table_json, outfile)
+    new_table_json = pred.generateTable(input_list)
+
+    with open('data/table_' + dataset_type + '.json', 'r') as file:
+        actual_table = json.load(file)
+
+    curr_id = len(actual_table)
+    for i, elem in enumerate(new_table_json):
+        new_table_json[i]['id'] = curr_id
+        curr_id += 1
+
+    with open('data/table_' + dataset_type + '.json', 'w') as file:
+        json.dump(actual_table + new_table_json, file)
     return 'Okay!'
 
 

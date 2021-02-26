@@ -68,6 +68,11 @@ class Predictor:
         # self.model_3.load_state_dict(new_state_dict)
         # torch.save(self.model_3.state_dict(), 'Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
 
+        # self.model_3.load_state_dict(
+        #     torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
+        # )
+
+        # model 2
         self.model_3.load_state_dict(
             torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
         )
