@@ -459,7 +459,7 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
-      GEOType: 'GSE',
+      GEOType: 'GSM',
       GSMS_data: [],
       GSMS_columns: [
         {
@@ -500,7 +500,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003
-      backendIP: 'http://localhost:5003',
+      backendIP: 'http://10.79.23.5:5003',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -518,11 +518,11 @@ export default {
         {
           label: 'Type 3 (multiply layers)',
           value: 2
-        },
-        {
-          label: 'Type 4 (custom)',
-          value: 3
         }
+        // {
+        //   label: 'Type 4 (custom)',
+        //   value: 3
+        // }
       ],
       hideNone: true,
       last_index: 'no_index',
@@ -658,27 +658,40 @@ export default {
     callModel () {
       if (!this.gpt2Computed) {
         this.loadGpt2 = true
-        this.$axios.post(this.backendIP + '/CallModel', { inputs: this.inputs_api, output_fields: this.output_fields[this.datasetType], exp_id: this.datasetType }).then((response) => {
+        this.$axios.post(this.backendIP + '/CallModel', {
+          inputs: this.inputs_api,
+          output_fields: this.output_fields[this.datasetType],
+          exp_id: this.datasetType,
+          aggregation_type: this.aggregationType,
+          selected_heads: this.selected_heads,
+          selected_layers: this.selected_layers,
+          headsCustomOp: this.headsCustomOp,
+          layersCustomOp: this.layersCustomOp
+        }).then((response) => {
           this.attentions = response.data.attentions
           this.outputs = response.data.outputs
           this.gradientResults = response.data.gradient
           this.output_indexes = response.data.output_indexes
-          this.$axios.post(this.backendIP + '/ComputeAttention', {
-            inputs: this.inputs_api,
-            output_fields: this.output_fields[this.datasetType],
-            attentions: this.attentions,
-            output_indexes: this.output_indexes,
-            aggregation_type: this.aggregationType,
-            selected_heads: this.selected_heads,
-            selected_layers: this.selected_layers,
-            headsCustomOp: this.headsCustomOp,
-            layersCustomOp: this.layersCustomOp
-          }).then((response) => {
-            this.attentionResults = response.data.attentions_results
-            this.gpt2Computed = true
-            this.loadGpt2 = false
-            this.disableGpt2button = true
-          }).catch(error => (error.message))
+          this.attentionResults = response.data.attentions_results
+          this.gpt2Computed = true
+          this.loadGpt2 = false
+          this.disableGpt2button = true
+          // this.$axios.post(this.backendIP + '/ComputeAttention', {
+          //   inputs: this.inputs_api,
+          //   output_fields: this.output_fields[this.datasetType],
+          //   attentions: this.attentions,
+          //   output_indexes: this.output_indexes,
+          //   aggregation_type: this.aggregationType,
+          //   selected_heads: this.selected_heads,
+          //   selected_layers: this.selected_layers,
+          //   headsCustomOp: this.headsCustomOp,
+          //   layersCustomOp: this.layersCustomOp
+          // }).then((response) => {
+          //   this.attentionResults = response.data.attentions_results
+          //   this.gpt2Computed = true
+          //   this.loadGpt2 = false
+          //   this.disableGpt2button = true
+          // }).catch(error => (error.message))
         }).catch(error => (error.message))
       }
     },
@@ -903,7 +916,7 @@ export default {
       }
       this.show_error = false
       this.searchingSamples = true
-      const searchList = this.GEO_list_text.trim().split(',').map(elem => elem.trim())
+      const searchList = this.GEO_list_text.trim().split(',').map(elem => elem.trim().toUpperCase())
       console.log(searchList)
       this.$axios.post(
         this.backendIP + '/searchGEO',
