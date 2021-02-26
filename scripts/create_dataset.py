@@ -1,12 +1,13 @@
 from GEOparse import get_GEO
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 
 def main():
     dataset_type = 'train'
     df = pd.read_csv('Experiment_2/Data/GPT2_fixed_data/' + dataset_type + 'set.csv')
-    for index in range(len(df)):
+    for index in tqdm(range(len(df))):
         if not pd.isna(df.loc[index, 'GSM']):
             try:
                 gsm_data = get_GEO(geo=df.loc[index, 'GSM'], destdir='GEO')
@@ -15,7 +16,7 @@ def main():
                     if 'series_id' in gsm_data.metadata.keys()
                     else ''
                 )
-                input_text = '[title]: ' + (
+                input_text += ' [title]: ' + (
                     ' - '.join(gsm_data.metadata['title'])
                     if 'title' in gsm_data.metadata.keys()
                     else ''
@@ -46,7 +47,7 @@ def main():
                     else ''
                 )
                 input_text += ' = '
-                input_text.replace('_', ' ').replace('*', '')
+                input_text = input_text.replace('_', ' ').replace('*', '')
                 input_text_words = input_text.split(' ')
                 input_text_words = [
                     word if len(word) < 30 else '' for word in input_text_words
