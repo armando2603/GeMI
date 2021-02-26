@@ -475,6 +475,7 @@ def searchGEO():
 
     return jsonify(GEO_table)
 
+
 def AttentionParse(
     attentions,
     output_fields,
