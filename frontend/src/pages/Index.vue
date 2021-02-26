@@ -24,7 +24,7 @@
             @selection='searchData'
           >
             <template v-slot:top>
-              <div class="text-h6 text-primary q-pl-md">Dataset</div>
+              <!-- <div class="text-h6 text-primary q-pl-md">Dataset</div> -->
               <!-- <div class='q-pl-md'>
                 <q-btn-toggle
                   v-model="datasetType"
@@ -549,7 +549,7 @@ export default {
         1: [],
         2: []
       },
-      selected: [{ id: '0' }],
+      selected: [{ id: 0 }],
       pagination: {
         rowsPerPage: 200,
         sortBy: 'warnings',
@@ -806,7 +806,7 @@ export default {
       }
       this.gpt2Computed = false
       this.outputs = []
-      this.selected = [{ id: '' }]
+      this.selected = [{ id: 0 }]
       this.isValid = true
     },
     visualizeNewAggregation () {
