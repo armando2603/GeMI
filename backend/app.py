@@ -5,6 +5,7 @@ from forked_lime.lime.lime_text import LimeTextExplainer
 from GEOparse import get_GEO
 import numpy as np
 import json
+import datetime
 
 # configuration
 DEBUG = True
@@ -27,20 +28,15 @@ def CallModel():
     #         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
     #         input_text = input_text[:-2] + '='
     # elif data['exp_id'] == 2:
-    input_text = inputs_data[0]['values'][0]['text'] + ' ='
-    inputs_ids_all = pred.tokenizer.encode(input_text)
+    input_text = '<BOS>' + inputs_data[0]['values'][0]['text'] + '<SEP>'
     output_fields = data['output_fields']
-    pred.fields = [' ' + field for field in output_fields]
-    output_fields = [' ' + field for field in output_fields]
+    # pred.fields = [' ' + field for field in output_fields]
+    # output_fields = [' ' + field for field in output_fields]
+    pred.fields = output_fields
     pred.model_id = data['exp_id']
-    aggregationType = data['aggregation_type']
-    selected_heads = np.array(data['selected_heads'])
-    selected_layers = np.array(data['selected_layers'])
-    heads_op = data['headsCustomOp']
-    layers_op = data['layersCustomOp']
     # print(input_text)
     pred.predict([input_text])
-    input_text = input_text = inputs_data[0]['values'][0]['text']
+    input_text = inputs_data[0]['values'][0]['text'].strip()
     confidences = pred.confidences
     output_ids = pred.generated_sequence_ids
     output_indexes = np.array(pred.indexes)
@@ -76,9 +72,7 @@ def CallModel():
     outputs = [dict(
         field=elem[0],
         value=elem[1],
-        color=get_color(i) if (
-            elem[1] != ' unknown' and elem[1] != ' None' and elem[1] != '<missing>'
-            ) else 'grey-3',
+        color=get_color(i),
         confidence=np.round(np.float64(confidences[i]), 2)
         ) for i, elem in enumerate(output_split)]
     # gradient saliency
@@ -146,10 +140,17 @@ def CallModel():
         #         ])
         #     else:
         #         filtered_scores += list(scores[values_indexes[i]:-1])
-        scores = scores[:len(input_tokens)]
+        # print(len(scores))
+        scores = scores[1:len(input_tokens)+1]
         max_scores = np.max(scores)
         max_scores = 1 if max_scores == 0.0 else max_scores
         scores = scores / max_scores
+        assert len(input_tokens) == len(scores), (
+            f'Gradient: len input_tokens {len(input_tokens)} != len scores {len(scores)}'
+        )
+        # print(len(scores))
+        # print(len(input_tokens))
+        # print(f'Il primo token è {input_tokens[-1]}')
         input_list = list(zip(input_tokens, scores))
 
         # for i in range(len(values_indexes)):
@@ -204,30 +205,30 @@ def CallModel():
             ]
         gradient_inputs.append(gradient_input)
 
-    filtered_attentions = np.round(
-        pred.attentions[
-            :, :, len(inputs_ids_all):, :len(input_ids)
-        ], 6
-    )
+    # filtered_attentions = np.round(
+    #     pred.attentions[
+    #         :, :, len(inputs_ids_all):, 1:len(input_ids)
+    #     ], 6
+    # )
 
-    attentions_results = AttentionParse(
-        input_text,
-        filtered_attentions,
-        output_fields,
-        output_indexes,
-        aggregationType,
-        selected_heads,
-        selected_layers,
-        heads_op,
-        layers_op
-    )
+    # attentions_results = AttentionParse(
+    #     input_text,
+    #     filtered_attentions,
+    #     output_fields,
+    #     output_indexes,
+    #     aggregationType,
+    #     selected_heads,
+    #     selected_layers,
+    #     heads_op,
+    #     layers_op
+    # )
 
     response = {
         'outputs': outputs,
         # 'attentions': filtered_attentions.tolist(),
         'output_indexes': output_indexes.tolist(),
-        'gradient': gradient_inputs,
-        'attentions_results': attentions_results
+        'gradient': gradient_inputs
+        # 'attentions_results': attentions_results
     }
     # print(response['attentions'][0][2])
     # print(jsonify(response))
@@ -240,7 +241,7 @@ def ComputeAttention():
     attentions = np.array(data['attentions'])
     inputs_data = data['inputs']
     output_fields = data['output_fields']
-    output_fields = [' ' + field for field in output_fields]
+    # output_fields = [' ' + field for field in output_fields]
     output_indexes = np.array(data['output_indexes'])
     aggregationType = data['aggregation_type']
     selected_heads = np.array(data['selected_heads'])
@@ -361,6 +362,15 @@ def upload():
     return 'Okay!'
 
 
+@app.route('/uploadTable', methods=['POST'])
+@cross_origin()
+def uploadTable():
+    for fname in request.files:
+        f = request.files.get(fname)
+        f.save('data/table_2.json')
+    return 'Okay!'
+
+
 @app.route('/deleteTable', methods=['POST'])
 @cross_origin()
 def deleteTable():
@@ -368,6 +378,30 @@ def deleteTable():
     dataset_type = str(data['table_id'])
     with open('data/table_' + dataset_type + '.json', 'w') as file:
         json.dump([], file)
+    return 'Okay!'
+
+
+@app.route('/writeLog', methods=['POST'])
+def writeLog():
+    data = request.get_json()
+    if data['editType'] == 'confirm' or data['editType'] == 'unknown':
+        new_line = str(datetime.datetime.now()) + ', '
+        new_line += 'GSM: ' + data['GSM'] + ', '
+        new_line += 'edit type: ' + data['editType'] + ', '
+        new_line += 'field: ' + data['field'] + ', '
+        new_line += 'prediction: ' + data['prediction'] + ', '
+        new_line += 'input text: ' + data['input_text']
+    elif data['editType'] == 'new':
+        new_line = str(datetime.datetime.now()) + ', '
+        new_line += 'GSM: ' + data['GSM'] + ', '
+        new_line += 'edit type: ' + data['editType'] + ', '
+        new_line += 'field: ' + data['field'] + ', '
+        new_line += 'prediction: ' + data['prediction'] + ', '
+        new_line += 'edit text: ' + data['edit_text'] + ', '
+        new_line += 'input text: ' + data['input_text']
+    with open('data/editLog.txt', 'a') as log:
+        log.write('\n')
+        log.write(new_line)
     return 'Okay!'
 
 
@@ -379,29 +413,46 @@ def generateTable():
 
     input_list = []
     for gsm in input_data:
-        text_list = [
-            # gsm['organism'],
-            gsm['characteristics'],
-            gsm['description'],
-            gsm['title'],
-            gsm['source_name'],
-            # gsm['sample_type'],
-        ]
 
-        input_text = ' '.join(text_list) + ' ='
+        input_text = '[gse]: ' + ' - '.join(gsm['GSE'])
+        input_text += ' [title]: ' + gsm['title']
+        input_text += ' [sample type]: ' + gsm['sample_type']
+        input_text += ' [source name]: ' + gsm['source_name']
+        input_text += ' [organism]: ' + gsm['organism']
+        input_text += ' [characteristics]: ' + gsm['characteristics']
+        input_text += ' [description]: ' + gsm['description']
+
+        input_text = input_text.replace('_', ' ').replace('*', '')
         input_text_words = input_text.split(' ')
         input_text_words = [
             word if len(word) < 30 else '' for word in input_text_words
         ]
-        input_text_words = [
-            word if set(word) != {'*'} else '' for word in input_text_words
-        ]
         input_text = ' '.join(input_text_words)
+
+
+        # text_list = [
+        #     # gsm['organism'],
+        #     gsm['characteristics'],
+        #     gsm['description'],
+        #     gsm['title'],
+        #     gsm['source_name'],
+        #     # gsm['sample_type'],
+        # ]
+
+        # input_text = ' '.join(text_list) + ' ='
+        # input_text_words = input_text.split(' ')
+        # input_text_words = [
+        #     word if len(word) < 30 else '' for word in input_text_words
+        # ]
+        # input_text_words = [
+        #     word if set(word) != {'*'} else '' for word in input_text_words
+        # ]
+        # input_text = ' '.join(input_text_words)
         input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
         input_list.append(input_dict)
 
     dataset_type = str(data['exp_id'])
-    pred.fields = [' ' + field for field in output_fields]
+    pred.fields = [field for field in output_fields]
     pred.model_id = data['exp_id']
     # with open('data/input_' + dataset_type + '.json') as f:
     #     input_list = json.load(f)
@@ -430,6 +481,7 @@ def searchGEO():
     GEO_table = []
     if search_type == 'GSM':
         for gsm in search_list:
+            gsm = gsm.replace('"', '')
             gsm_data = get_GEO(geo=gsm, destdir='data/GEO')
             description = (
                 ' - '.join(gsm_data.metadata['description'])

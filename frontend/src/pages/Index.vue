@@ -3,9 +3,10 @@
     <div class='q-pt-md justify-evenly column'>
     <div>
       <template>
-        <div class="justify-evenly row">
+        <div class="q-ml-xl q-mr-xl">
           <q-table
-            class='table'
+            class=''
+            style='max-height: 500px'
             table-header-class='text-primary'
             color='primary'
             dense
@@ -23,6 +24,12 @@
             bordered
             @update:selected ='searchData'
           >
+            <template v-slot:body-cell="props">
+              <q-td :props="props">
+                <q-badge v-if='props.row.fields[props.col.name]' style='white-space: pre-line' :color="getColorCell(props.row, props.col)" :label='props.value'/>
+                <div v-if='!props.row.fields[props.col.name]'>{{props.value}}</div>
+              </q-td>
+            </template>
             <template v-slot:top>
               <div class="text-h6 text-primary q-pl-md">Dataset</div>
               <!-- <div class='q-pl-md'>
@@ -59,9 +66,9 @@
                       <q-space />
                       <q-btn icon="close" @click="disableLoadSamples=true; show_error=false" flat round dense v-close-popup />
                     </q-card-section>
-                    <q-card-section class="row items-start">
-                      <div class='q-pr-md q-pt-sm text-grey-8'>Select dataset type :</div>
-                      <q-btn-toggle
+                    <!-- <q-card-section class="row items-start">
+                      <div class='q-pr-md q-pt-sm text-grey-8'>Select dataset type :</div> -->
+                      <!-- <q-btn-toggle
                         v-model="datasetType"
                         class="toggle"
                         style='width: 100px'
@@ -78,8 +85,8 @@
                           {label: '1', value: 1},
                           {label: '2', value: 2}
                         ]"
-                      />
-                    </q-card-section>
+                      /> -->
+                    <!-- </q-card-section> -->
                     <div class="row justify-start q-ml-md">
                       <div class="text-grey-8 q-mt-sm">
                         Select a Type of input :
@@ -155,13 +162,43 @@
                   @click="exportTable"
                 />
               </div>
-              <div class='q-pl-md' style="">
+              <div class='q-pl-md'>
                 <q-btn
                   rounded
+                  no-caps
                   color="primary"
                   label="Import json"
+                  @click='importJSON = true'
                 />
               </div>
+              <q-dialog v-model="importJSON" persistent transition-show="scale" transition-hide="scale">
+                <q-card style='width: 400px; height: 300px'>
+                  <q-card-section class="row items-center q-pb-none">
+                    <div class="text-h6 row justify-center text-primary">Import JSON</div>
+                    <q-space />
+                    <q-btn icon="close" flat round dense v-close-popup />
+                  </q-card-section>
+                  <q-card-section class='q-pt-md row justify-evenly'>
+                      <q-uploader
+                        :url="backendIP + '/uploadTable'"
+                        style="max-width: 300px"
+                        accept=".json"
+                        max-files="1"
+                        hide-upload-btn
+                        auto-upload
+                      />
+                  </q-card-section>
+                  <q-card-section class='row justify-center'>
+                  <q-btn
+                    rounded
+                    no-caps
+                    color="primary"
+                    label="Import"
+                    @click='getJSON(); importJSON=false'
+                  />
+                  </q-card-section>
+                </q-card>
+              </q-dialog>
               <div class='q-pl-md'>
                 <q-btn
                   rounded
@@ -176,9 +213,9 @@
         </div>
       </template>
     </div>
-    <div class='q-pa-md justify-evenly row'>
-      <div>
-        <div class='row q-pb-md'>
+    <div class='q-pt-xl justify-center row'>
+      <div class="q-pa-md">
+        <!-- <div class='row justify-end q-pb-md'> -->
           <!-- <q-input
           class='input-id q-pb-md'
           outlined v-model="selected[0].id"
@@ -193,10 +230,7 @@
           <!-- <div class='q-pl-md q-pt-md q-pb-md'>
             <q-btn round icon='search' color="primary" @click='searchData'/>
           </div> -->
-          <div class='q-pl-md q-pt-md q-pb-md'>
-            <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
-          </div>
-        </div>
+        <!-- </div> -->
         <q-card class="my-inputs">
           <q-card-section>
             <div class='justify-evenly row'>
@@ -256,9 +290,12 @@
           </q-card-section>
         </q-card>
       </div>
+      <div class='q-pa-xl'>
+        <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
+      </div>
       <div>
-        <div class="q-pa-md justify-evenly row">
-          <q-btn-toggle
+        <!-- <div class="q-pa-md justify-evenly row"> -->
+          <!-- <q-btn-toggle
             v-model="typeInterpreter"
             class="toggle"
             @input="resetInputs"
@@ -273,30 +310,41 @@
               {label: 'Gradient', value: 'gradient'},
               {label: 'Attention', value: 'attention'}
             ]"
-          />
-          <q-toggle
+          /> -->
+          <!-- <q-toggle
             class = 'q-pr-sm text-grey-8'
             style="white-space: pre-wrap;"
             v-model="hideNone"
             label="Hide None"
             @input='resetInputs()'
-          />
-          <div class='q-pr-sm'>
+          /> -->
+          <!-- <div class='q-pr-sm'>
           <q-btn :disable="!gpt2Computed || editcard || (last_index === 'no_index')" round color='primary' icon='rule' @click='editcard=true'/>
           </div>
-        </div>
+        </div> -->
         <div class="q-pa-md">
-          <q-card>
+          <q-card style='min-width: 400px'>
             <q-card-section>
               <div class="justify-evenly row">
                 <div class="text-h6 text-primary"> GPT2 Output</div>
               </div>
               <div class='my-outputs row'>
-                <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index)">
+                <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index); editcard=true">
                   <div class='q-pa-sm' v-if="!((output.value === ' None' || output.value ===' unknown' || output.value === '<missing>') && hideNone)">
-                  <q-field class="output-field" label-color="grey-10" color='indigo-10' :disable="!gpt2Computed" stack-label outlined dense :bg-color='output.color' :label="output.field + ' [' + output.confidence + ']'" >
+                  <q-field
+                  class="output-field"
+                  label-color="grey-10"
+                  color='indigo-10'
+                  :disable="!gpt2Computed"
+                  stack-label
+                  outlined
+                  dense
+                  :bg-color='dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output_fields[datasetType][index]].fixed ? "info" : output.color) : output.color'
+                  :label="output.field + ' [' + (dataset_json[datasetType][id]? dataset_json[datasetType][id].fields[output_fields[datasetType][index]].confidence: output.confidence) + ']'" >
                     <template v-slot:control>
-                      <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">{{output.value}}</div>
+                      <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">
+                        {{dataset_json[datasetType][id]? (dataset_json[datasetType][id].fields[output_fields[datasetType][index]].fixed ? dataset_json[datasetType][id].fields[output_fields[datasetType][index]].value : output.value): output.value}}
+                      </div>
                     </template>
 
                   </q-field>
@@ -320,10 +368,10 @@
           </q-card>
         </div>
       </div>
-      <div class="q-pt-lg q-pr-md  selection-type" v-if='editcard && gpt2Computed'>
+      <div class="q-pa-md" v-if='editcard && gpt2Computed'>
         <q-card>
           <q-card-section>
-            <div class="text-h6 text-primary">Fix Output</div>
+            <div class="text-h6 text-primary row justify-center">Fix Output</div>
             <div class='q-pt-md'>
               <!-- <q-select
                 outlined
@@ -331,22 +379,44 @@
                 v-model="edit_label"
                 :options="output_fields[this.datasetType]"
                 label='Select field'/> -->
-              <q-field borderless label="Selected Field" label-color='primary' stack-label>
+              <q-field borderless label="Selected Field:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
                     {{ output_fields[datasetType][last_index] }}
                   </div>
                 </template>
               </q-field>
-              <q-field borderless label="Confidence" label-color='primary' stack-label>
+              <q-field borderless label="Original predicted value:" label-color='primary' stack-label>
+                <template v-slot:control>
+                  <div class="self-center full-width no-outline" tabindex="0">
+                    {{ outputs[last_index].value }}
+                  </div>
+                </template>
+              </q-field>
+              <q-field borderless label="Confidence of the predicted value:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
                     {{ outputs[last_index].confidence }}
                   </div>
                 </template>
               </q-field>
+              <q-field borderless label="Last edited value:" label-color='primary' stack-label>
+                <template v-slot:control>
+                  <div class="self-center full-width no-outline" tabindex="0">
+                    {{ dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output_fields[datasetType][last_index]].fixed ? dataset_json[datasetType][id].fields[output_fields[datasetType][last_index]].value : 'Not edited') : 'Not edited' }}
+                  </div>
+                </template>
+              </q-field>
             </div>
-            <div class='q-pt-md'>
+            <div class="text-primary q-pr-sm row justify-center">
+              Choose:
+            </div>
+            <div>
+              <q-radio v-model="editType" val="confirm" label="Confirm value" />
+              <q-radio v-model="editType" val="unknown" label="Set as unknown" />
+              <q-radio v-model="editType" val="new" label="Insert new value" />
+            </div>
+            <div v-if="editType==='new'" class='q-pt-md'>
               <q-input
                 outlined bg-color='grey-3'
                 v-model="edit_text"
@@ -354,8 +424,9 @@
                 placeholder='insert new value' />
             </div>
             <div class='q-pt-md justify-evenly row'>
-              <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/>
-              <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/>
+              <q-btn rounded size='md' color='primary' label='Edit' @click='edit()'/>
+              <!-- <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/> -->
+              <!-- <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/> -->
             </div>
           </q-card-section>
         </q-card>
@@ -474,6 +545,8 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      importJSON: false,
+      editType: null,
       GEOType: 'GSM',
       GSMS_data: [],
       GSMS_columns: [
@@ -539,7 +612,7 @@ export default {
         //   value: 3
         // }
       ],
-      hideNone: true,
+      hideNone: false,
       last_index: 'no_index',
       showGeoInput: true,
       datasetType: 2,
@@ -683,11 +756,11 @@ export default {
           headsCustomOp: this.headsCustomOp,
           layersCustomOp: this.layersCustomOp
         }).then((response) => {
-          this.attentions = response.data.attentions
+          // this.attentions = response.data.attentions
           this.outputs = response.data.outputs
           this.gradientResults = response.data.gradient
           this.output_indexes = response.data.output_indexes
-          this.attentionResults = response.data.attentions_results
+          // this.attentionResults = response.data.attentions_results
           this.gpt2Computed = true
           this.loadGpt2 = false
           this.disableGpt2button = true
@@ -707,7 +780,10 @@ export default {
           //   this.loadGpt2 = false
           //   this.disableGpt2button = true
           // }).catch(error => (error.message))
-        }).catch(error => (error.message))
+        }).catch(error => {
+          console.log(error)
+          this.loadGpt2 = false
+        })
       }
     },
     searchData (newSelected) {
@@ -855,7 +931,7 @@ export default {
     count_warns (row) {
       var nWarn = 0
       for (var field of this.output_fields[this.datasetType]) {
-        if (row.fields[field].confidence < 0.85 && row.fields[field].value !== ' None' && row.fields[field].value !== ' unknown' && row.fields[field].value !== '<missing>') {
+        if (row.fields[field].confidence <= 0.85) {
           nWarn += 1
         }
       }
@@ -931,7 +1007,7 @@ export default {
       }
       this.show_error = false
       this.searchingSamples = true
-      const searchList = this.GEO_list_text.trim().split(',').map(elem => elem.trim().toUpperCase())
+      const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
       console.log(searchList)
       this.$axios.post(
         this.backendIP + '/searchGEO',
@@ -950,15 +1026,60 @@ export default {
       this.$axios.post(
         this.backendIP + '/deleteTable',
         { table_id: this.datasetType }
-      ).then((response) => {
-        this.$axios.get(this.backendIP + '/getJSONs')
-          .then((response) => {
-            this.dataset_json[1] = response.data[0]
-            this.dataset_json[2] = response.data[1]
-          }).catch(error => (error.message))
-      }).catch(error => {
+      ).catch(error => {
         console.log(error.message)
       })
+      this.dataset_json[2] = []
+      this.resetPage()
+    },
+    edit () {
+      this.$axios.post(
+        this.backendIP + '/writeLog',
+        {
+          editType: this.editType,
+          GSM: this.dataset_json[this.datasetType][this.id].GSM,
+          input_text: this.dataset_json[this.datasetType][this.id].input,
+          edit_text: this.edit_text,
+          prediction: this.outputs[this.last_index].value,
+          field: this.outputs[this.last_index].field
+        }
+      ).catch(error => (error.message))
+      if (this.editType === 'confirm') {
+        this.confirmOutput()
+      }
+      if (this.editType === 'unknown') {
+        this.edit_text = 'unknown'
+        this.changeOutput()
+        this.edit_text = ''
+      }
+      if (this.editType === 'new') {
+        this.changeOutput()
+      }
+    },
+    getJSON () {
+      this.$axios.get(this.backendIP + '/getJSONs')
+        .then((response) => {
+          this.dataset_json[1] = response.data[0]
+          this.dataset_json[2] = response.data[1]
+        }).catch(error => (error.message))
+    },
+    getColorCell (row, col) {
+      if (this.dataset_json[2] !== []) {
+        if (this.dataset_json[2] !== []) {
+          const field = this.dataset_json[2][row.id].fields[col.name]
+          if (field !== undefined) {
+            const confidence = field.confidence
+            if (field.fixed) return 'info'
+            if (confidence > 0.85) return 'green-4'
+            if (confidence < 0.60) {
+              return 'red-4'
+            } else {
+              return 'orange-4'
+            }
+          }
+        }
+      }
+      return ''
     }
   },
   created () {

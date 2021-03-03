@@ -39,7 +39,7 @@ class Predictor:
             "cuda:0" if torch.cuda.is_available() else "cpu"
         )
         self.generated_sequence = None
-        self.MAX_LEN = 400
+        self.MAX_LEN = 500
         self.model = None
         self.model_id = None
         # Load pre-trained model (weights)
@@ -50,13 +50,19 @@ class Predictor:
             return_dict=True
         )
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-        self.tokenizer.add_special_tokens({'pad_token': '<pad>'})
+        self.tokenizer.add_special_tokens({
+            'pad_token': '<PAD>',
+            'bos_token': '<BOS>',
+            'eos_token': '<EOS>',
+            'sep_token': '<SEP>',
+            'additional_special_tokens': ['<SEPO>']
+        })
 
         # self.model_1.resize_token_embeddings(len(self.tokenizer))
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
         self.model_3.resize_token_embeddings(len(self.tokenizer))
 
-        # checkpoint = torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
+        # checkpoint = torch.load('Models/checkpoint_2_hs_at-epoch=23-val_loss=0.132.ckpt')
         # state_dict = checkpoint['state_dict']
         # new_state_dict = OrderedDict()
         # for k, v in state_dict.items():
@@ -66,15 +72,11 @@ class Predictor:
         #         name = k
         #     new_state_dict[name] = v
         # self.model_3.load_state_dict(new_state_dict)
-        # torch.save(self.model_3.state_dict(), 'Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
-
-        # self.model_3.load_state_dict(
-        #     torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
-        # )
+        # torch.save(self.model_3.state_dict(), 'Models/checkpoint_2_hs_at-epoch=23-val_loss=0.132.ckpt')
 
         # model 2
         self.model_3.load_state_dict(
-            torch.load('Models/checkpoint_12-epoch=49-val_loss=0.065.ckpt')
+            torch.load('Models/checkpoint_2-epoch=26-val_loss=0.121.ckpt')
         )
 
         self.model_3.eval()
@@ -97,7 +99,7 @@ class Predictor:
             self.model = self.model_3
         list_idx = []
         for i, input_text in enumerate(list_input_text):
-            end_id = self.tokenizer.encode(' $')[0]
+            end_id = int(self.tokenizer.eos_token_id)
             print(input_text)
             indexed_tokens = self.tokenizer.encode(
                 input_text,
@@ -117,7 +119,31 @@ class Predictor:
             generated_sequence = []
             distributions = []
             predicted_token = 0
+            # colon_id = self.tokenizer.encode(':')[0]
+            # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
+            # attn_mask_value = torch.zeros(1, 0, device=self.device)
+            # is_value = False
+            # attn_mask = torch.ones(input_ids.shape, device=self.device)
+            # while(predicted_token != self.tokenizer.pad_token_id
+            #         and predicted_token != end_id
+            #         and len(generated_sequence) < 300):
 
+            #     inputs_embeds, token_ids_tensor_one_hot = \
+            #         self._get_embeddings(input_ids[0])
+            #     inputs = inputs_embeds.unsqueeze(0)
+            #     outputs = self.model(inputs_embeds=inputs, attention_mask=attn_mask)
+            #     next_token_logits = outputs.logits[:, -1, :]
+            #     predicted_token_tensor = torch.argmax(next_token_logits)
+            #     attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
+            #     if is_value:
+            #         attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
+            #     if predicted_token_tensor == colon_id:
+            #         is_value = True
+            #     if predicted_token_tensor == SEPO_id:
+            #         is_value = False
+            #         attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
+            #         attn_mask_value = torch.zeros(1, 0, device=self.device)
+            #     print(self.tokenizer.decode(generated_sequence))
             while(predicted_token != self.tokenizer.pad_token_id
                     and predicted_token != end_id
                     and len(generated_sequence) < 300):
@@ -129,6 +155,7 @@ class Predictor:
 
                 next_token_logits = outputs.logits[:, -1, :]
                 predicted_token_tensor = torch.argmax(next_token_logits)
+
                 distributions.append(
                     F.softmax(next_token_logits[0], 0).detach().cpu().numpy()
                 )
@@ -143,7 +170,7 @@ class Predictor:
                     inputs_embeds
                 )
                 grad_explain.append(
-                    grad_x_input[:input_length - 1].detach().cpu().numpy()
+                    grad_x_input[:input_length].detach().cpu().numpy()
                 )
                 input_ids = torch.cat(
                     (input_ids, predicted_token_tensor.view(1, 1)),
@@ -254,11 +281,17 @@ class Predictor:
             self.model = self.model_3
         table_json = []
         with torch.no_grad():
-            for it, input_dict in enumerate(list_input_dict):
+            for it, input_dict in enumerate(tqdm(list_input_dict)):
                 # print(input_text)
-                input_ids = self.tokenizer.encode(input_dict['input_text'], return_tensors='pt')
+                input_text = '<BOS>' + input_dict['input_text'] + '<SEP>'
+                input_ids = self.tokenizer.encode(
+                    input_text,
+                    return_tensors='pt',
+                    truncation=True,
+                    max_length=self.MAX_LEN
+                )
                 input_ids = input_ids.to(self.device)
-                end_id = self.tokenizer.encode(' $')[0]
+                end_id = int(self.tokenizer.eos_token_id)
                 predicted_token = 0
                 generated_sequence = []
                 distributions = []
@@ -281,7 +314,7 @@ class Predictor:
                 )
                 fields_dict = dict()
                 for i, field in enumerate(self.fields):
-                    fields_dict[field[1:]] = dict(
+                    fields_dict[field] = dict(
                         value=values[i],
                         confidence=np.round(np.float(confidences[i]), 3),
                         fixed=False
@@ -291,7 +324,13 @@ class Predictor:
                         id=it,
                         GSE=input_dict['GSE'],
                         GSM=input_dict['GSM'],
-                        input=input_dict['input_text'][:-2],
+                        input=self.tokenizer.decode(
+                            self.tokenizer.encode(
+                                input_dict['input_text'],
+                                truncation=True,
+                                max_length=self.MAX_LEN
+                            )
+                        ),
                         prediction_text=self.tokenizer.decode(generated_sequence),
                         fields=fields_dict
                     )
