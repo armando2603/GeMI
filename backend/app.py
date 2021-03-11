@@ -28,7 +28,7 @@ def CallModel():
     #         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
     #         input_text = input_text[:-2] + '='
     # elif data['exp_id'] == 2:
-    input_text = '<BOS>' + inputs_data[0]['values'][0]['text'] + '<SEP>'
+    input_text = inputs_data[0]['values'][0]['text']
     output_fields = data['output_fields']
     # pred.fields = [' ' + field for field in output_fields]
     # output_fields = [' ' + field for field in output_fields]
@@ -71,7 +71,7 @@ def CallModel():
 
     outputs = [dict(
         field=elem[0],
-        value=elem[1],
+        value=elem[1].strip(),
         color=get_color(i),
         confidence=np.round(np.float64(confidences[i]), 2)
         ) for i, elem in enumerate(output_split)]
@@ -763,6 +763,27 @@ def AttentionParse(
             attention_inputs.append(attention_input)
         attention_inputs_list.append(attention_inputs)
     return attention_inputs_list
+
+
+@app.route('/saveAndTrain', methods=['POST'])
+def saveAndTrain():
+    data = request.get_json()
+    pred.model_id = 2
+    input_text = data['input_text']
+    output_text = data['output_text']
+    pred.onlineLearning(input_text, output_text)
+
+    return 'okay'
+
+
+@app.route('/regenerateTable', methods=['POST'])
+def regenerateTable():
+    data = request.get_json()
+    input_list = data['inputList']
+    pred.fields = data['output_fields']
+    pred.model_id = data['exp_id']
+    new_table_json = pred.generateTable(input_list)
+    return jsonify(new_table_json)
 
 
 if __name__ == '__main__':

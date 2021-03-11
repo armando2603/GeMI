@@ -1,12 +1,12 @@
 <template>
   <div class='q-pa-md'>
     <div class='q-pt-md justify-evenly column'>
-    <div>
+    <div style="width: 100%">
       <template>
-        <div class="q-ml-xl q-mr-xl">
+        <div class="q-ml-xl q-mr-xl row justify-evenly">
           <q-table
             class=''
-            style='max-height: 500px'
+            style='max-height: 500px; max-width: 100%'
             table-header-class='text-primary'
             color='primary'
             dense
@@ -119,7 +119,7 @@
                     </div>
                     <q-card-section class='row justify-evenly' style="max-height: 100%">
                       <template>
-                        <div class="q-pa-md">
+                        <div class="q-pa-md" style='width: 100%'>
                           <q-table
                             style="max-width: 99%; max-height: 500px"
                             table-header-class='text-primary'
@@ -326,7 +326,8 @@
           <q-card style='min-width: 400px'>
             <q-card-section>
               <div class="justify-evenly row">
-                <div class="text-h6 text-primary"> GPT2 Output</div>
+                <div class="text-h6 text-primary">Extracted Values</div>
+                <q-btn color="primary" round icon='save' @click='saveAndTrain()' />
               </div>
               <div class='my-outputs row'>
                 <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index); editcard=true">
@@ -339,7 +340,7 @@
                   stack-label
                   outlined
                   dense
-                  :bg-color='dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output_fields[datasetType][index]].fixed ? "info" : output.color) : output.color'
+                  :bg-color='dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output_fields[datasetType][index]].fixed ? "info" : getOutputColor(output.confidence)) : getOutputColor(output.confidence)'
                   :label="output.field + ' [' + (dataset_json[datasetType][id]? dataset_json[datasetType][id].fields[output_fields[datasetType][index]].confidence: output.confidence) + ']'" >
                     <template v-slot:control>
                       <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">
@@ -386,7 +387,7 @@
                   </div>
                 </template>
               </q-field>
-              <q-field borderless label="Original predicted value:" label-color='primary' stack-label>
+              <q-field style="{white-space: pre-line}" borderless label="Original predicted value:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
                     {{ outputs[last_index].value }}
@@ -408,10 +409,10 @@
                 </template>
               </q-field>
             </div>
-            <div class="text-primary q-pr-sm row justify-center">
+            <div class="text-primary q-pr-sm">
               Choose:
             </div>
-            <div>
+            <div class="column">
               <q-radio v-model="editType" val="confirm" label="Confirm value" />
               <q-radio v-model="editType" val="unknown" label="Set as unknown" />
               <q-radio v-model="editType" val="new" label="Insert new value" />
@@ -545,6 +546,8 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      greenThreshold: 0.8,
+      redThreshold: 0.6,
       importJSON: false,
       editType: null,
       GEOType: 'GSM',
@@ -931,7 +934,7 @@ export default {
     count_warns (row) {
       var nWarn = 0
       for (var field of this.output_fields[this.datasetType]) {
-        if (row.fields[field].confidence <= 0.85) {
+        if (row.fields[field].confidence <= this.redThreshold) {
           nWarn += 1
         }
       }
@@ -1070,8 +1073,8 @@ export default {
           if (field !== undefined) {
             const confidence = field.confidence
             if (field.fixed) return 'info'
-            if (confidence > 0.85) return 'green-4'
-            if (confidence < 0.60) {
+            if (confidence > this.greenThreshold) return 'green-4'
+            if (confidence < this.redThreshold) {
               return 'red-4'
             } else {
               return 'orange-4'
@@ -1080,6 +1083,68 @@ export default {
         }
       }
       return ''
+    },
+    saveAndTrain () {
+      let outputText = ''
+      for (const [index, field] of this.output_fields[this.datasetType].entries()) {
+        outputText += field + ': ' + this.dataset_json[this.datasetType][this.id].fields[field].value
+        if (index === (this.output_fields[this.datasetType].length - 1)) {
+          outputText += '<EOS>'
+        } else {
+          outputText += '<SEPO>'
+        }
+      }
+      // console.log(this.output_fields[2].slice(-1))
+      // console.log(outputText)
+      this.$axios.post(
+        this.backendIP + '/saveAndTrain',
+        {
+          input_text: this.dataset_json[this.datasetType][this.id].input,
+          output_text: outputText
+        }
+      ).then((response) => {
+        const inputList = []
+        for (const row of this.dataset_json[this.datasetType]) {
+          inputList.push({
+            input_text: row.input,
+            GSE: row.GSE,
+            GSM: row.GSM
+          })
+        }
+        this.$axios.post(
+          this.backendIP + '/regenerateTable',
+          {
+            inputList: inputList,
+            output_fields: this.output_fields[2],
+            exp_id: 2
+          }
+        ).then((response) => {
+          // this.dataset_json[this.datasetType] = response.data
+          for (const [index, row] of response.data.entries()) {
+            for (const field of this.output_fields[2]) {
+              if (this.dataset_json[this.datasetType][index].fields[field].fixed) {
+                // console.log('uno fixato')
+                // console.log(row.fields[field].value)
+                // this.dataset_json[this.datasetType][index].fields[field].value = row.fields[field].value
+              } else {
+                // console.log('uno non fixato')
+                // console.log(row)
+                this.dataset_json[this.datasetType][index].fields[field].value = row.fields[field].value
+                this.dataset_json[this.datasetType][index].fields[field].confidence = row.fields[field].confidence
+              }
+            }
+          }
+        })
+      }).catch(error => {
+        console.log(error.message)
+      })
+    },
+    getOutputColor (confidence) {
+      if (confidence > this.greenThreshold) return 'green-3'
+      else {
+        if (confidence < this.redThreshold) return 'red-3'
+        else return 'orange-3'
+      }
     }
   },
   created () {

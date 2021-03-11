@@ -39,12 +39,12 @@ class Predictor:
             "cuda:0" if torch.cuda.is_available() else "cpu"
         )
         self.generated_sequence = None
-        self.MAX_LEN = 500
+        self.MAX_LEN = 350
         self.model = None
         self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'gpt2'
-        self.model_3 = GPT2LMHeadModel.from_pretrained(
+        self.model = GPT2LMHeadModel.from_pretrained(
             model_name,
             output_attentions=True,
             return_dict=True
@@ -60,46 +60,37 @@ class Predictor:
 
         # self.model_1.resize_token_embeddings(len(self.tokenizer))
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
-        self.model_3.resize_token_embeddings(len(self.tokenizer))
+        self.model.resize_token_embeddings(len(self.tokenizer))
 
-        checkpoint = torch.load('Models/checkpoint_2-epoch=24-val_loss=0.030.ckpt')
-        state_dict = checkpoint['state_dict']
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            if k[:6] == 'model.':
-                name = k[6:]
-            else:
-                name = k
-            new_state_dict[name] = v
-        self.model_3.load_state_dict(new_state_dict)
-        torch.save(self.model_3.state_dict(), 'Models/checkpoint_2-epoch=24-val_loss=0.030.ckpt')
+        # checkpoint = torch.load('Models/checkpoint_2_distil_nomask_new-epoch=33-val_loss=0.231.ckpt')
+        # state_dict = checkpoint['state_dict']
+        # new_state_dict = OrderedDict()
+        # for k, v in state_dict.items():
+        #     if k[:6] == 'model.':
+        #         name = k[6:]
+        #     else:
+        #         name = k
+        #     new_state_dict[name] = v
+        # self.model_3.load_state_dict(new_state_dict)
+        # torch.save(self.model_3.state_dict(), 'Models/checkpoint_2_distil_nomask_new-epoch=33-val_loss=0.231.ckpt')
 
-        # self.model_3.load_state_dict(
-        #     torch.load('Models/checkpoint_2-epoch=09-val_loss=0.051.ckpt')
-        # )
+        self.model.load_state_dict(
+            torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+        )
         # model 2
-        # self.model_3.load_state_dict(
-        #     torch.load('Models/checkpoint_2-epoch=26-val_loss=0.121.ckpt')
+        # self.model.load_state_dict(
+        #     torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
         # )
 
-        self.model_3.eval()
-        self.model_3.to(self.device)
+        self.model.eval()
+        self.model.to(self.device)
 
-        self.model_1 = self.model_3
-        self.model_2 = self.model_3
         # self.model_1.eval()
         # self.model_1.to(self.device)
         # self.model_2.eval()
 
         # self.model_2.to(self.device)
     def predict(self, list_input_text):
-        assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
-        if self.model_id == 1:
-            self.model = self.model_1
-        if self.model_id == 2:
-            self.model = self.model_2
-        if self.model_id == 3:
-            self.model = self.model_3
         list_idx = []
         for i, input_text in enumerate(list_input_text):
             end_id = int(self.tokenizer.eos_token_id)
@@ -107,26 +98,35 @@ class Predictor:
             indexed_tokens = self.tokenizer.encode(
                 input_text,
                 truncation=True,
-                max_length=self.MAX_LEN
+                max_length=self.MAX_LEN + 3
             )
+            # print(self.tokenizer.decode(indexed_tokens))
             tokens_tensor = torch.tensor([indexed_tokens])
-            tokens_tensor = tokens_tensor.to(self.device)
+            tokens_tensor = tokens_tensor
             list_idx.append(tokens_tensor)
         results = []
         grad_explain = []
         # Predict all tokens
         for input_ids in tqdm(list_idx, position=0, leave=True):
-            input_length = input_ids.shape[1]
             # print(input_ids.size())
 
+            input_ids = torch.cat(
+                (
+                    torch.tensor([[self.tokenizer.bos_token_id]]),
+                    input_ids,
+                    torch.tensor([[self.tokenizer.sep_token_id]])
+                ),
+                dim=-1
+            ).to(self.device)
+            input_length = input_ids.shape[1]
             generated_sequence = []
             distributions = []
             predicted_token = 0
-            colon_id = self.tokenizer.encode(':')[0]
-            SEPO_id = self.tokenizer.encode('<SEPO>')[0]
-            attn_mask_value = torch.zeros(1, 0, device=self.device)
-            is_value = False
-            attn_mask = torch.ones(input_ids.shape, device=self.device)
+            # colon_id = self.tokenizer.encode(':')[0]
+            # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
+            # attn_mask_value = torch.zeros(1, 0, device=self.device)
+            # is_value = False
+            # attn_mask = torch.ones(input_ids.shape, device=self.device)
             while(predicted_token != self.tokenizer.pad_token_id
                     and predicted_token != end_id
                     and len(generated_sequence) < 300):
@@ -134,20 +134,21 @@ class Predictor:
                 inputs_embeds, token_ids_tensor_one_hot = \
                     self._get_embeddings(input_ids[0])
                 inputs = inputs_embeds.unsqueeze(0)
-                outputs = self.model(inputs_embeds=inputs, attention_mask=attn_mask)
+                # outputs = self.model(inputs_embeds=inputs, attention_mask=attn_mask)
+                outputs = self.model(inputs_embeds=inputs)
                 next_token_logits = outputs.logits[:, -1, :]
                 predicted_token_tensor = torch.argmax(next_token_logits)
-                if predicted_token_tensor == SEPO_id:
-                    is_value = False
-                    attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
-                    attn_mask_value = torch.zeros(1, 0, device=self.device)
-                attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
-                if is_value:
-                    attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
-                if predicted_token_tensor == colon_id:
-                    is_value = True
+                # if predicted_token_tensor == SEPO_id:
+                #     is_value = False
+                #     attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
+                #     attn_mask_value = torch.zeros(1, 0, device=self.device)
+                # attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
+                # if is_value:
+                #     attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
+                # if predicted_token_tensor == colon_id:
+                #     is_value = True
                 
-                print(self.tokenizer.decode(generated_sequence))
+                # print(self.tokenizer.decode(generated_sequence))
             # while(predicted_token != self.tokenizer.pad_token_id
             #         and predicted_token != end_id
             #         and len(generated_sequence) < 300):
@@ -276,51 +277,76 @@ class Predictor:
         return inputs_embeds, token_ids_tensor_one_hot
 
     def generateTable(self, list_input_dict):
-        assert self.model_id is not None, 'Please set self.model_id to 1 or 2'
-        if self.model_id == 1:
-            self.model = self.model_1
-        if self.model_id == 2:
-            self.model = self.model_2
-        if self.model_id == 3:
-            self.model = self.model_3
+        self.model.load_state_dict(
+            torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+        )
         table_json = []
         with torch.no_grad():
             for it, input_dict in enumerate(tqdm(list_input_dict)):
                 # print(input_text)
-                input_text = '<BOS>' + input_dict['input_text'] + '<SEP>'
                 input_ids = self.tokenizer.encode(
-                    input_text,
+                    input_dict['input_text'].strip(),
                     return_tensors='pt',
                     truncation=True,
                     max_length=self.MAX_LEN
                 )
+                # print(input_ids.shape)
+                input_ids = torch.cat(
+                    (
+                        torch.tensor([[self.tokenizer.bos_token_id]]),
+                        input_ids,
+                        torch.tensor([[self.tokenizer.sep_token_id]])
+                    ),
+                    dim=-1
+                )
                 input_ids = input_ids.to(self.device)
-                end_id = int(self.tokenizer.eos_token_id)
-                predicted_token = 0
+                end_id = self.tokenizer.eos_token_id
                 generated_sequence = []
                 distributions = []
-                while(predicted_token != self.tokenizer.pad_token_id
-                        and predicted_token != end_id
-                        and len(generated_sequence) < 300):
-                    out = self.model(input_ids)
+                # colon_id = self.tokenizer.encode(':')[0]
+                # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
+                # attn_mask_value = torch.zeros(1, 0, device=self.device)
+                # is_value = False
+                # attn_mask = torch.ones(input_ids.shape, device=self.device)
+                past = None
+                while(len(generated_sequence) < 300):
+                    out = self.model(
+                        input_ids,
+                        # attention_mask=attn_mask,
+                        past_key_values=past,
+                        use_cache=True
+                    )
+                    past = out.past_key_values
                     last_tensor = out.logits[0, -1, :]
                     distributions.append(
-                        F.softmax(last_tensor, 0).detach().cpu().numpy()
+                        F.softmax(last_tensor, 0)
                     )
                     predicted_token_tensor = torch.argmax(last_tensor)
-                    predicted_token = predicted_token_tensor.item()
-                    input_ids = torch.cat(
-                        (input_ids, predicted_token_tensor.view(1, 1)), dim=-1)
-                    generated_sequence.append(predicted_token)
+                    # if predicted_token_tensor == SEPO_id:
+                    #     is_value = False
+                    #     attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
+                    #     attn_mask_value = torch.zeros(1, 0, device=self.device)
+                    # attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
+                    # if is_value:
+                    #     attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
+                    # if predicted_token_tensor == colon_id:
+                    #     is_value = True
+                    input_ids = predicted_token_tensor.view(1, 1)
+                    # input_ids = torch.cat(
+                    #     (input_ids, predicted_token_tensor.view(1, 1)), dim=-1)
+                    generated_sequence.append(predicted_token_tensor)
+                    if predicted_token_tensor == end_id:
+                        break
                 # print(self.tokenizer.decode(generated_sequence))
+                distributions = [distribution.cpu().numpy() for distribution in distributions]
                 values, confidences = self.extract_values(
                     generated_sequence, distributions
                 )
                 fields_dict = dict()
                 for i, field in enumerate(self.fields):
                     fields_dict[field] = dict(
-                        value=values[i],
-                        confidence=np.round(np.float(confidences[i]), 3),
+                        value=values[i].strip(),
+                        confidence=np.round(np.float(confidences[i]), 2),
                         fixed=False
                     )
                 table_json.append(
@@ -330,7 +356,7 @@ class Predictor:
                         GSM=input_dict['GSM'],
                         input=self.tokenizer.decode(
                             self.tokenizer.encode(
-                                input_dict['input_text'],
+                                input_dict['input_text'].strip(),
                                 truncation=True,
                                 max_length=self.MAX_LEN
                             )
@@ -420,3 +446,95 @@ class Predictor:
                 #     ))
 
         return values, confidences
+
+    def onlineLearning(self, input_text, output_text):
+        input_ids = self.tokenizer.encode(
+            input_text,
+            return_tensors='pt',
+            truncation=True,
+            max_length=self.MAX_LEN
+        ).to(self.device)
+        output_ids = self.tokenizer.encode(
+            output_text,
+            return_tensors='pt'
+        ).to(self.device)
+
+        inp_out_ids = torch.cat(
+            (
+                torch.tensor([[self.tokenizer.bos_token_id]], device=self.device),
+                input_ids,
+                torch.tensor([[self.tokenizer.sep_token_id]], device=self.device),
+                output_ids
+            ),
+            dim=-1
+        )
+        inp_out_ids = inp_out_ids
+        labels = inp_out_ids.clone().detach()
+        labels[0, :-output_ids.shape[1]] = torch.ones(
+            input_ids.shape[1] + 2
+        ) * -100
+
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-6)
+        new_output = torch.empty(output_ids.shape, device=self.device)
+        not_match = True
+        max_epochs = 5
+        epoch = 0
+        while (not_match and epoch < max_epochs):
+            epoch += 1
+            self.model.train()
+            optimizer.zero_grad()
+            output = self.model(inp_out_ids, labels=labels)
+            loss = output.loss
+            print(loss)
+            loss.backward()
+            optimizer.step()
+            self.model.eval()
+            with torch.no_grad():
+                past = None
+                inp = torch.cat(
+                    (
+                        torch.tensor(
+                            [[self.tokenizer.bos_token_id]],
+                            device=self.device
+                        ),
+                        input_ids,
+                        torch.tensor(
+                            [[self.tokenizer.sep_token_id]],
+                            device=self.device
+                        )
+                    ),
+                    dim=-1
+                )
+                generated_sequence = torch.zeros(
+                    (1, 0),
+                    device=self.device
+                ).long()
+                while(len(generated_sequence) < 300):
+                    out = self.model(
+                        inp,
+                        # attention_mask=attn_mask,
+                        past_key_values=past,
+                        use_cache=True
+                    )
+                    past = out.past_key_values
+                    last_tensor = out.logits[0, -1, :]
+                    predicted_token_tensor = torch.argmax(last_tensor)
+                    inp = predicted_token_tensor.view(1, 1)
+                    generated_sequence = torch.cat(
+                        (generated_sequence, predicted_token_tensor.view(1,1)),
+                        dim=-1
+                    )
+                    if predicted_token_tensor == self.tokenizer.eos_token_id:
+                        break
+                new_output = generated_sequence
+                if new_output.shape == output_ids.shape:
+                    if torch.all(new_output.eq(output_ids)):
+                        not_match = False
+        torch.save(
+            self.model.state_dict(),
+            'Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt'
+        )
+        # self.model.load_state_dict(
+        #     torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+        # )
+        # self.model.eval()

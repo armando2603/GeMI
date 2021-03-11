@@ -44,3 +44,4 @@ backend/data/*.json
 demo/scripts/*.json
 backend/data/GEO/*.txt
 backend/data/GEO/*.gz
+backend/data/editLog.txt
