@@ -72,7 +72,7 @@ class Predictor:
         # torch.save(self.model.state_dict(), 'Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
 
         self.model.load_state_dict(
-            torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+            torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
         )
         # model 2
         # self.model.load_state_dict(

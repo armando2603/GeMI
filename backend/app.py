@@ -792,7 +792,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "-c",
         "--colab",
-        action="colab_mode_true",
+        action="store_true",
         help="colab mode"
     )
     args = parser.parse_args()
