@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 import torch
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 import torch.nn.functional as F
 from tqdm import tqdm
 
@@ -44,11 +44,8 @@ class Predictor:
         self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'gpt2'
-        self.model = GPT2LMHeadModel.from_pretrained(
-            model_name,
-            output_attentions=True,
-            return_dict=True
-        )
+        config = GPT2Config()
+        self.model = GPT2LMHeadModel(config)
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.tokenizer.add_special_tokens({
             'pad_token': '<PAD>',
@@ -62,7 +59,7 @@ class Predictor:
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
         self.model.resize_token_embeddings(len(self.tokenizer))
 
-        # checkpoint = torch.load('Models/checkpoint_2_distil_nomask_new-epoch=33-val_loss=0.231.ckpt')
+        # checkpoint = torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
         # state_dict = checkpoint['state_dict']
         # new_state_dict = OrderedDict()
         # for k, v in state_dict.items():
@@ -72,10 +69,10 @@ class Predictor:
         #         name = k
         #     new_state_dict[name] = v
         # self.model_3.load_state_dict(new_state_dict)
-        # torch.save(self.model_3.state_dict(), 'Models/checkpoint_2_distil_nomask_new-epoch=33-val_loss=0.231.ckpt')
+        # torch.save(self.model.state_dict(), 'Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
 
         self.model.load_state_dict(
-            torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+            torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
         )
         # model 2
         # self.model.load_state_dict(
@@ -135,7 +132,11 @@ class Predictor:
                     self._get_embeddings(input_ids[0])
                 inputs = inputs_embeds.unsqueeze(0)
                 # outputs = self.model(inputs_embeds=inputs, attention_mask=attn_mask)
-                outputs = self.model(inputs_embeds=inputs)
+                outputs = self.model(
+                    inputs_embeds=inputs,
+                    output_attentions=True,
+                    return_dict=True
+                )
                 next_token_logits = outputs.logits[:, -1, :]
                 predicted_token_tensor = torch.argmax(next_token_logits)
                 # if predicted_token_tensor == SEPO_id:
@@ -314,7 +315,8 @@ class Predictor:
                         input_ids,
                         # attention_mask=attn_mask,
                         past_key_values=past,
-                        use_cache=True
+                        use_cache=True,
+                        return_dict=True
                     )
                     past = out.past_key_values
                     last_tensor = out.logits[0, -1, :]
@@ -514,7 +516,8 @@ class Predictor:
                         inp,
                         # attention_mask=attn_mask,
                         past_key_values=past,
-                        use_cache=True
+                        use_cache=True,
+                        return_dict=True
                     )
                     past = out.past_key_values
                     last_tensor = out.logits[0, -1, :]
