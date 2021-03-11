@@ -787,4 +787,16 @@ def regenerateTable():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--colab",
+        action="colab_mode_true",
+        help="colab mode"
+    )
+    args = parser.parse_args()
+    if args.colab:
+        from flask_ngrok import run_with_ngrok
+        run_with_ngrok(app)
     app.run()
