@@ -618,7 +618,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://e4541736700d.ngrok.io',
+      backendIP: 'https://1bb81dcac94c.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],

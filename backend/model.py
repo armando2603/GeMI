@@ -90,7 +90,7 @@ class Predictor:
     def predict(self, list_input_text):
         list_idx = []
         for i, input_text in enumerate(list_input_text):
-            end_id = int(self.tokenizer.eos_token_id)
+            end_id = self.tokenizer.eos_token_id
             print(input_text)
             indexed_tokens = self.tokenizer.encode(
                 input_text,
@@ -118,15 +118,12 @@ class Predictor:
             input_length = input_ids.shape[1]
             generated_sequence = []
             distributions = []
-            predicted_token = 0
             # colon_id = self.tokenizer.encode(':')[0]
             # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
             # attn_mask_value = torch.zeros(1, 0, device=self.device)
             # is_value = False
             # attn_mask = torch.ones(input_ids.shape, device=self.device)
-            while(predicted_token != self.tokenizer.pad_token_id
-                    and predicted_token != end_id
-                    and len(generated_sequence) < 300):
+            while(len(generated_sequence) < 300):
 
                 inputs_embeds, token_ids_tensor_one_hot = \
                     self._get_embeddings(input_ids[0])
@@ -165,11 +162,10 @@ class Predictor:
                 distributions.append(
                     F.softmax(next_token_logits[0], 0).detach()
                 )
-                predicted_token = predicted_token_tensor.item()
                 prediction_logit = outputs.logits[
                     0,
                     -1,
-                    predicted_token
+                    predicted_token_tensor
                 ]
                 grad_x_input = gradient_x_inputs_attribution(
                     prediction_logit,
@@ -182,7 +178,9 @@ class Predictor:
                     (input_ids, predicted_token_tensor.view(1, 1)),
                     dim=-1
                 ).detach()
-                generated_sequence.append(predicted_token.detach())
+                generated_sequence.append(predicted_token_tensor.detach())
+                if predicted_token_tensor == end_id:
+                    break
             self.attentions = [
                 layer[0].detach().cpu().numpy()
                 for layer in outputs.attentions
@@ -284,9 +282,6 @@ class Predictor:
         return inputs_embeds, token_ids_tensor_one_hot
 
     def generateTable(self, list_input_dict):
-        self.model.load_state_dict(
-            torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
-        )
         table_json = []
         with torch.no_grad():
             for it, input_dict in enumerate(tqdm(list_input_dict)):
