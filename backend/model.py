@@ -163,7 +163,7 @@ class Predictor:
             #     predicted_token_tensor = torch.argmax(next_token_logits)
 
                 distributions.append(
-                    F.softmax(next_token_logits[0], 0).detach().cpu().numpy()
+                    F.softmax(next_token_logits[0], 0).detach()
                 )
                 predicted_token = predicted_token_tensor.item()
                 prediction_logit = outputs.logits[
@@ -176,17 +176,23 @@ class Predictor:
                     inputs_embeds
                 )
                 grad_explain.append(
-                    grad_x_input[:input_length].detach().cpu().numpy()
+                    grad_x_input[:input_length].detach()
                 )
                 input_ids = torch.cat(
                     (input_ids, predicted_token_tensor.view(1, 1)),
                     dim=-1
                 ).detach()
-                generated_sequence.append(predicted_token)
+                generated_sequence.append(predicted_token.detach())
             self.attentions = [
                 layer[0].detach().cpu().numpy()
                 for layer in outputs.attentions
             ]
+            grad_explain = [
+                explain.cpu().numpy() for explain in grad_explain
+            ]
+            distributions = [
+                distribution.cpu().numpy() for distribution in distributions
+                ]
             self.grad_explain = np.array(grad_explain)
             self.attentions = np.array(self.attentions)
             print(self.tokenizer.decode(generated_sequence))
@@ -476,7 +482,7 @@ class Predictor:
             input_ids.shape[1] + 2
         ) * -100
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-6)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=2e-6)
         new_output = torch.empty(output_ids.shape, device=self.device)
         not_match = True
         max_epochs = 5

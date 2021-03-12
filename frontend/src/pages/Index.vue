@@ -618,7 +618,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://dfef963a61b5.ngrok.io',
+      backendIP: 'https://e4541736700d.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -1016,7 +1016,7 @@ export default {
       ).then(response => {
         this.$axios.get(this.backendIP + '/getJSONs')
           .then((response) => {
-            this.dataset_json[1] = response.data[0]
+            // this.dataset_json[1] = response.data[0]
             this.dataset_json[2] = response.data[1]
             this.loadingSamples = false
             this.uploadSamples = false
@@ -1167,7 +1167,7 @@ export default {
           console.log('dovrebbe aver salvato')
           this.store_json()
           this.confirmSaveAndTrain = false
-          this.selected = [{ id: null }]
+          this.resetPage()
         })
       }).catch(error => {
         console.log(error.message)
