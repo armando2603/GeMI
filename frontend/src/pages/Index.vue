@@ -327,7 +327,31 @@
             <q-card-section>
               <div class="justify-evenly row">
                 <div class="text-h6 text-primary">Extracted Values</div>
-                <q-btn color="primary" round icon='save' @click='saveAndTrain()' />
+                <q-btn color="primary" round icon='save' @click='confirmSaveAndTrain=true' />
+              </div>
+              <div>
+                <q-dialog v-model="confirmSaveAndTrain" persistent>
+                  <q-card style="width: 350px">
+                    <q-card-section>
+                      <div class='justify-evenly row'>
+                        <div class="text-h6 text-primary q-pb-sm q-pl-md">Save and Retrain</div>
+                      </div>
+                    </q-card-section>
+                    <q-card-section class="row justify-evenly" v-if='loadingRegenerating || loadingRetraining'>
+                      <q-spinner color="primary" size="3em" />
+                    </q-card-section>
+                    <q-card-section class="row justify-evenly">
+                      <span v-if='!loadingRegenerating && !loadingRetraining' class="q-ml-sm">You want to submit your corrections??</span>
+                      <span v-if='loadingRegenerating' class="q-ml-sm">Updating the table...</span>
+                      <span v-if='loadingRetraining' class="q-ml-sm">Training the model...</span>
+                    </q-card-section>
+
+                    <q-card-actions v-if='!loadingRegenerating && !loadingRetraining' class="row justify-evenly">
+                      <q-btn class="q-pb-sm" flat label="No" color="primary" v-close-popup />
+                      <q-btn class="q-pb-sm" flat label="Yes" @click='saveAndTrain()' color="primary"/>
+                    </q-card-actions>
+                  </q-card>
+                </q-dialog>
               </div>
               <div class='my-outputs row'>
                 <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index); editcard=true">
@@ -546,6 +570,9 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      loadingRetraining: false,
+      loadingRegenerating: false,
+      confirmSaveAndTrain: false,
       greenThreshold: 0.8,
       redThreshold: 0.6,
       importJSON: false,
@@ -591,7 +618,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'http://12acbdbf4ede.ngrok.io',
+      backendIP: 'https://dfef963a61b5.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -1085,6 +1112,7 @@ export default {
       return ''
     },
     saveAndTrain () {
+      this.loadingRetraining = true
       let outputText = ''
       for (const [index, field] of this.output_fields[this.datasetType].entries()) {
         outputText += field + ': ' + this.dataset_json[this.datasetType][this.id].fields[field].value
@@ -1111,6 +1139,8 @@ export default {
             GSM: row.GSM
           })
         }
+        this.loadingRetraining = false
+        this.loadingRegenerating = true
         this.$axios.post(
           this.backendIP + '/regenerateTable',
           {
@@ -1120,20 +1150,24 @@ export default {
           }
         ).then((response) => {
           // this.dataset_json[this.datasetType] = response.data
-          for (const [index, row] of response.data.entries()) {
+          const newTable = response.data
+          for (const [index, row] of this.dataset_json[this.datasetType].entries()) {
             for (const field of this.output_fields[2]) {
               if (this.dataset_json[this.datasetType][index].fields[field].fixed) {
                 // console.log('uno fixato')
                 // console.log(row.fields[field].value)
-                // this.dataset_json[this.datasetType][index].fields[field].value = row.fields[field].value
-              } else {
-                // console.log('uno non fixato')
-                // console.log(row)
-                this.dataset_json[this.datasetType][index].fields[field].value = row.fields[field].value
-                this.dataset_json[this.datasetType][index].fields[field].confidence = row.fields[field].confidence
+                newTable[index].fields[field].value = row.fields[field].value
+                newTable[index].fields[field].confidence = row.fields[field].confidence
+                newTable[index].fields[field].fixed = true
               }
             }
+            this.loadingRegenerating = false
           }
+          this.dataset_json[this.datasetType] = newTable
+          console.log('dovrebbe aver salvato')
+          this.store_json()
+          this.confirmSaveAndTrain = false
+          this.selected = [{ id: null }]
         })
       }).catch(error => {
         console.log(error.message)

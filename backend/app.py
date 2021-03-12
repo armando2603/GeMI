@@ -333,10 +333,16 @@ def Lime():
 
 @app.route('/getJSONs', methods=['GET'])
 def getJSONs():
-    with open('data/table_1.json') as f:
-        table_1 = json.load(f)
-    with open('data/table_2.json') as f:
-        table_2 = json.load(f)
+    try:
+        with open('data/table_1.json') as f:
+            table_1 = json.load(f)
+        with open('data/table_2.json') as f:
+            table_2 = json.load(f)
+    except:
+        new_table_2 = []
+        with open('data/table_2.json', 'w') as f:
+            json.dump(new_table_2, f)
+
     return jsonify([table_1, table_2])
 
 
