@@ -16,33 +16,14 @@ CORS(app)
 pred = Predictor()
 
 
-@app.route('/CallModel', methods=['POST'])
-def CallModel():
-    data = request.get_json()
-    inputs_data = data['inputs']
-    # for element in inputs_data:
-    #     input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
-    # input_text = input_text[:-2] + '='
-    # if data['exp_id'] == 1:
-    #     for element in inputs_data:
-    #         input_text += f'{element["field"]}: {element["values"][0]["text"]} - '
-    #         input_text = input_text[:-2] + '='
-    # elif data['exp_id'] == 2:
-    input_text = inputs_data[0]['values'][0]['text']
-    output_fields = data['output_fields']
-    # pred.fields = [' ' + field for field in output_fields]
-    # output_fields = [' ' + field for field in output_fields]
-    pred.fields = output_fields
-    pred.model_id = data['exp_id']
-    # print(input_text)
-    pred.predict([input_text])
-    input_text = inputs_data[0]['values'][0]['text'].strip()
-    confidences = pred.confidences
-    output_ids = pred.generated_sequence_ids
-    output_indexes = np.array(pred.indexes)
-    input_ids = np.array(pred.tokenizer.encode(input_text))
-    # print(output_ids.shape)
-
+def gradientParser(
+    output_indexes,
+    data,
+    output_ids,
+    output_fields,
+    confidences,
+    input_ids
+):
     output_split = []
     for i in range(len(output_indexes)):
         if output_indexes[i] == -1:
@@ -78,36 +59,6 @@ def CallModel():
     # gradient saliency
     gradient_score = pred.grad_explain
 
-    # input_fields = [' ' + element['field'] for element in inputs_data]
-    # values_indexes = []
-    # for field in input_fields:
-    #     field_ids = np.array(pred.tokenizer.encode(field))
-    #     input_ids = np.array(pred.tokenizer.encode(input_text))
-    #     indexes = np.ones(
-    #         len(np.where(
-    #             input_ids == field_ids[0])[0])
-    #     ) * -1
-    #     for i, field_id in enumerate(field_ids):
-    #         current_indexes = np.where(
-    #             input_ids == field_id)[0]
-    #         for n, index in enumerate(indexes):
-    #             if i == 0:
-    #                 indexes = current_indexes
-    #             else:
-    #                 for current_index in current_indexes:
-    #                     if index + 1 == current_index:
-    #                         indexes[n] = current_index
-    #                         break
-    #                     else:
-    #                         indexes[n] = -1
-
-    #     if (len(np.where(indexes != -1)[0]) == 0):
-    #         index = -1
-    #     else:
-    #         index = indexes[np.where(indexes != 1)[0][0]] + 2
-
-    #     values_indexes.append(index)
-
     input_tokens = pred.tokenizer.convert_ids_to_tokens(input_ids)
     input_tokens = list(
         map(
@@ -129,18 +80,6 @@ def CallModel():
             ]
         scores = np.mean(scores, axis=0)
 
-        # filtered_scores = []
-
-        # for i in range(len(values_indexes)):
-        #     if i < len(values_indexes) - 1:
-        #         filtered_scores += list(scores[
-        #             values_indexes[i]:values_indexes[i+1]-len(
-        #                 pred.tokenizer.encode(output_fields[i+1])
-        #             )-1
-        #         ])
-        #     else:
-        #         filtered_scores += list(scores[values_indexes[i]:-1])
-        # print(len(scores))
         scores = scores[1:len(input_tokens)+1]
         max_scores = np.max(scores)
         max_scores = 1 if max_scores == 0.0 else max_scores
@@ -153,15 +92,6 @@ def CallModel():
         # print(f'Il primo token è {input_tokens[-1]}')
         input_list = list(zip(input_tokens, scores))
 
-        # for i in range(len(values_indexes)):
-        #     if i < len(values_indexes) - 1:
-        #         gradient_input.append(input_list[
-        #             values_indexes[i]:values_indexes[i+1]-len(
-        #                 pred.tokenizer.encode(output_fields[i+1])
-        #             )-1
-        #         ])
-        #     else:
-        #         gradient_input.append(input_list[values_indexes[i]:-1])
         word_list = []
         values_list = input_list
         new_values_list = []
@@ -204,34 +134,57 @@ def CallModel():
                     ) for elem in gradient_input[i]
             ]
         gradient_inputs.append(gradient_input)
+    return outputs, gradient_inputs
 
-    # filtered_attentions = np.round(
-    #     pred.attentions[
-    #         :, :, len(inputs_ids_all):, 1:len(input_ids)
-    #     ], 6
-    # )
 
-    # attentions_results = AttentionParse(
-    #     input_text,
-    #     filtered_attentions,
-    #     output_fields,
-    #     output_indexes,
-    #     aggregationType,
-    #     selected_heads,
-    #     selected_layers,
-    #     heads_op,
-    #     layers_op
-    # )
+@app.route('/CallModel', methods=['POST'])
+def CallModel():
+    data = request.get_json()
+    input_text = data['inputs'][0]['values'][0]['text']
+    output_fields = data['output_fields']
+    pred.fields = output_fields
+    pred.model_id = data['exp_id']
+
+    pred.predict([input_text])
+
+    confidences = pred.confidences
+    output_ids = pred.generated_sequence_ids
+    output_indexes = np.array(pred.indexes)
+    input_ids = np.array(pred.tokenizer.encode(input_text))
+
+    outputs_1, gradient_inputs_1 = gradientParser(
+        output_indexes,
+        data,
+        output_ids,
+        output_fields,
+        confidences,
+        input_ids
+    )
+
+    output_fields = ['Cell Line', 'Tissue Type']
+    pred.fields = output_fields
+    pred.model_id = 1
+
+    pred.predict([input_text])
+
+    confidences = pred.confidences
+    output_ids = pred.generated_sequence_ids
+    output_indexes = np.array(pred.indexes)
+
+    outputs_2, gradient_inputs_2 = gradientParser(
+        output_indexes,
+        data,
+        output_ids,
+        output_fields,
+        confidences,
+        input_ids
+    )
 
     response = {
-        'outputs': outputs,
-        # 'attentions': filtered_attentions.tolist(),
-        'output_indexes': output_indexes.tolist(),
-        'gradient': gradient_inputs
-        # 'attentions_results': attentions_results
+        'outputs': outputs_1 + outputs_2,
+        # 'output_indexes': output_indexes.tolist(),
+        'gradient': gradient_inputs_1 + gradient_inputs_2
     }
-    # print(response['attentions'][0][2])
-    # print(jsonify(response))
     return jsonify(response)
 
 

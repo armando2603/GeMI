@@ -59,21 +59,21 @@ class Predictor:
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
         self.model.resize_token_embeddings(len(self.tokenizer))
 
-        # checkpoint = torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
-        # state_dict = checkpoint['state_dict']
-        # new_state_dict = OrderedDict()
-        # for k, v in state_dict.items():
-        #     if k[:6] == 'model.':
-        #         name = k[6:]
-        #     else:
-        #         name = k
-        #     new_state_dict[name] = v
-        # self.model_3.load_state_dict(new_state_dict)
-        # torch.save(self.model.state_dict(), 'Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+        checkpoint = torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+        state_dict = checkpoint['state_dict']
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            if k[:6] == 'model.':
+                name = k[6:]
+            else:
+                name = k
+            new_state_dict[name] = v
+        self.model.load_state_dict(new_state_dict)
+        torch.save(self.model.state_dict(), 'Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
 
-        self.model.load_state_dict(
-            torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
-        )
+        # self.model.load_state_dict(
+        #     torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+        # )
         # model 2
         # self.model.load_state_dict(
         #     torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
@@ -88,6 +88,14 @@ class Predictor:
 
         # self.model_2.to(self.device)
     def predict(self, list_input_text):
+        if self.model_id == 2:
+            self.model.load_state_dict(
+                torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+            )
+        if self.model_id == 1:
+            self.model.load_state_dict(
+                torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+            )
         list_idx = []
         for i, input_text in enumerate(list_input_text):
             end_id = self.tokenizer.eos_token_id
@@ -282,76 +290,90 @@ class Predictor:
         return inputs_embeds, token_ids_tensor_one_hot
 
     def generateTable(self, list_input_dict):
+        fields_dict = dict()
         table_json = []
-        with torch.no_grad():
-            for it, input_dict in enumerate(tqdm(list_input_dict)):
-                # print(input_text)
-                input_ids = self.tokenizer.encode(
-                    input_dict['input_text'].strip(),
-                    return_tensors='pt',
-                    truncation=True,
-                    max_length=self.MAX_LEN
+        model_ids = [2, 1]
+        prediction_list = []
+        for model_id in model_ids:
+            if model_id == 2:
+                self.model.load_state_dict(
+                    torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
                 )
-                # print(input_ids.shape)
-                input_ids = torch.cat(
-                    (
-                        torch.tensor([[self.tokenizer.bos_token_id]]),
-                        input_ids,
-                        torch.tensor([[self.tokenizer.sep_token_id]])
-                    ),
-                    dim=-1
+            if model_id == 1:
+                self.model.load_state_dict(
+                    torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
                 )
-                input_ids = input_ids.to(self.device)
-                end_id = self.tokenizer.eos_token_id
-                generated_sequence = []
-                distributions = []
-                # colon_id = self.tokenizer.encode(':')[0]
-                # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
-                # attn_mask_value = torch.zeros(1, 0, device=self.device)
-                # is_value = False
-                # attn_mask = torch.ones(input_ids.shape, device=self.device)
-                past = None
-                while(len(generated_sequence) < 300):
-                    out = self.model(
-                        input_ids,
-                        # attention_mask=attn_mask,
-                        past_key_values=past,
-                        use_cache=True,
-                        return_dict=True
+                self.fields = ['Cell Line', 'Tissue Type']
+            with torch.no_grad():
+                for it, input_dict in enumerate(tqdm(list_input_dict)):
+                    # print(input_text)
+                    input_ids = self.tokenizer.encode(
+                        input_dict['input_text'].strip(),
+                        return_tensors='pt',
+                        truncation=True,
+                        max_length=self.MAX_LEN
                     )
-                    past = out.past_key_values
-                    last_tensor = out.logits[0, -1, :]
-                    distributions.append(
-                        F.softmax(last_tensor, 0)
+                    # print(input_ids.shape)
+                    input_ids = torch.cat(
+                        (
+                            torch.tensor([[self.tokenizer.bos_token_id]]),
+                            input_ids,
+                            torch.tensor([[self.tokenizer.sep_token_id]])
+                        ),
+                        dim=-1
                     )
-                    predicted_token_tensor = torch.argmax(last_tensor)
-                    # if predicted_token_tensor == SEPO_id:
-                    #     is_value = False
-                    #     attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
-                    #     attn_mask_value = torch.zeros(1, 0, device=self.device)
-                    # attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
-                    # if is_value:
-                    #     attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
-                    # if predicted_token_tensor == colon_id:
-                    #     is_value = True
-                    input_ids = predicted_token_tensor.view(1, 1)
-                    # input_ids = torch.cat(
-                    #     (input_ids, predicted_token_tensor.view(1, 1)), dim=-1)
-                    generated_sequence.append(predicted_token_tensor)
-                    if predicted_token_tensor == end_id:
-                        break
-                # print(self.tokenizer.decode(generated_sequence))
-                distributions = [distribution.cpu().numpy() for distribution in distributions]
-                values, confidences = self.extract_values(
-                    generated_sequence, distributions
-                )
-                fields_dict = dict()
-                for i, field in enumerate(self.fields):
-                    fields_dict[field] = dict(
-                        value=values[i].strip(),
-                        confidence=np.round(np.float(confidences[i]), 2),
-                        fixed=False
+                    input_ids = input_ids.to(self.device)
+                    end_id = self.tokenizer.eos_token_id
+                    generated_sequence = []
+                    distributions = []
+                    # colon_id = self.tokenizer.encode(':')[0]
+                    # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
+                    # attn_mask_value = torch.zeros(1, 0, device=self.device)
+                    # is_value = False
+                    # attn_mask = torch.ones(input_ids.shape, device=self.device)
+                    past = None
+                    while(len(generated_sequence) < 300):
+                        out = self.model(
+                            input_ids,
+                            # attention_mask=attn_mask,
+                            past_key_values=past,
+                            use_cache=True,
+                            return_dict=True
+                        )
+                        past = out.past_key_values
+                        last_tensor = out.logits[0, -1, :]
+                        distributions.append(
+                            F.softmax(last_tensor, 0)
+                        )
+                        predicted_token_tensor = torch.argmax(last_tensor)
+                        # if predicted_token_tensor == SEPO_id:
+                        #     is_value = False
+                        #     attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
+                        #     attn_mask_value = torch.zeros(1, 0, device=self.device)
+                        # attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
+                        # if is_value:
+                        #     attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
+                        # if predicted_token_tensor == colon_id:
+                        #     is_value = True
+                        input_ids = predicted_token_tensor.view(1, 1)
+                        # input_ids = torch.cat(
+                        #     (input_ids, predicted_token_tensor.view(1, 1)), dim=-1)
+                        generated_sequence.append(predicted_token_tensor)
+                        if predicted_token_tensor == end_id:
+                            break
+                    # print(self.tokenizer.decode(generated_sequence))
+                    prediction_list.append(generated_sequence)
+                    distributions = [distribution.cpu().numpy() for distribution in distributions]
+                    values, confidences = self.extract_values(
+                        generated_sequence, distributions
                     )
+                    for i, field in enumerate(self.fields):
+                        fields_dict[field] = dict(
+                            value=values[i].strip(),
+                            confidence=np.round(np.float(confidences[i]), 2),
+                            fixed=False
+                        )
+                prediction = prediction_list[0][:-1] + prediction_list[1]
                 table_json.append(
                     dict(
                         id=it,
@@ -364,7 +386,7 @@ class Predictor:
                                 max_length=self.MAX_LEN
                             )
                         ),
-                        prediction_text=self.tokenizer.decode(generated_sequence),
+                        prediction_text=self.tokenizer.decode(prediction),
                         fields=fields_dict
                     )
                 )
@@ -536,9 +558,9 @@ class Predictor:
                         not_match = False
         torch.save(
             self.model.state_dict(),
-            'Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt'
+            'Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
         )
         # self.model.load_state_dict(
-        #     torch.load('Models/augmented_checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
+        #     torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
         # )
         # self.model.eval()

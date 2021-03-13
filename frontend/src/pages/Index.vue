@@ -618,7 +618,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://1bb81dcac94c.ngrok.io',
+      backendIP: 'https://bc41a090107a.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -716,12 +716,13 @@ export default {
         { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
         { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
         { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
+        { name: 'Investigated as', align: 'left', label: 'Investigated as', field: row => row.fields['Investigated as'].value, sortable: false },
         { name: 'Assay name', align: 'left', label: 'Assay name', field: row => row.fields['Assay name'].value, sortable: false },
         { name: 'Assay type', align: 'left', label: 'Assay type', field: row => row.fields['Assay type'].value, sortable: false },
         { name: 'Target of assay', align: 'left', label: 'Target of assay', field: row => row.fields['Target of assay'].value, sortable: false },
-        { name: 'Genome assembly', align: 'left', label: 'Genome assembly', field: row => row.fields['Genome assembly'].value, sortable: false },
+        // { name: 'Genome assembly', align: 'left', label: 'Genome assembly', field: row => row.fields['Genome assembly'].value, sortable: false },
         { name: 'Biosample term name', align: 'left', label: 'Biosample term name', field: row => row.fields['Biosample term name'].value, sortable: false },
-        { name: 'Project', align: 'left', label: 'Project', field: row => row.fields.Project.value, sortable: false },
+        // { name: 'Project', align: 'left', label: 'Project', field: row => row.fields.Project.value, sortable: false },
         { name: 'Organism', align: 'left', label: 'Organism', field: row => row.fields.Organism.value, sortable: false },
         { name: 'Life stage', align: 'left', label: 'Life stage', field: row => row.fields['Life stage'].value, sortable: false },
         { name: 'Age', align: 'left', label: 'Age', field: row => row.fields.Age.value, sortable: false },
@@ -730,8 +731,8 @@ export default {
         { name: 'Ethnicity', align: 'left', label: 'Ethnicity', field: row => row.fields.Ethnicity.value, sortable: false },
         { name: 'Health status', align: 'left', label: 'Health status', field: row => row.fields['Health status'].value, sortable: false },
         { name: 'Classification', align: 'left', label: 'Classification', field: row => row.fields.Classification.value, sortable: false },
-        { name: 'Investigated as', align: 'left', label: 'Investigated as', field: row => row.fields['Investigated as'].value, sortable: false }
-
+        { name: 'Cell Line', align: 'left', label: 'Cell Line', field: row => row.fields['Cell Line'].value, sortable: false },
+        { name: 'Tissue Type', align: 'left', label: 'Tissue Type', field: row => row.fields['Tissue Type'].value, sortable: false }
       ],
       id: 'none',
       inputs_api: [
@@ -747,26 +748,21 @@ export default {
       output_fields: {
         1: [
           'Cell Line',
-          'Cell Type',
-          'Tissue Type',
-          'Factor'
+          'Tissue Type'
         ],
         2: [
+          'Investigated as',
           'Assay name',
           'Assay type',
           'Target of assay',
-          'Genome assembly',
           'Biosample term name',
-          'Project',
           'Organism',
           'Life stage',
           'Age',
           'Age units',
           'Sex',
           'Ethnicity',
-          'Health status',
-          'Classification',
-          'Investigated as'
+          'Health status'
         ]
       }
     }
@@ -789,7 +785,7 @@ export default {
           // this.attentions = response.data.attentions
           this.outputs = response.data.outputs
           this.gradientResults = response.data.gradient
-          this.output_indexes = response.data.output_indexes
+          // this.output_indexes = response.data.output_indexes
           // this.attentionResults = response.data.attentions_results
           this.gpt2Computed = true
           this.loadGpt2 = false
@@ -921,43 +917,43 @@ export default {
       this.selected = [{ id: null }]
       this.isValid = true
     },
-    visualizeNewAggregation () {
-      if (this.last_index !== 'no_index') {
-        if (this.aggregationType === 3) {
-          this.$axios.post(this.backendIP + '/ComputeAttention', {
-            inputs: this.inputs_api,
-            output_fields: this.output_fields[this.datasetType],
-            attentions: this.attentions,
-            output_indexes: this.output_indexes,
-            aggregation_type: 'custom',
-            selected_heads: this.selected_heads,
-            selected_layers: this.selected_layers,
-            headsCustomOp: this.headsCustomOp,
-            layersCustomOp: this.layersCustomOp
-          }).then((response) => {
-            for (const i of Array(this.inputs_api.length).keys()) {
-              this.inputs[i].values = response.data.attentions_results[0][this.last_index][i]
-              this.attentionResults[this.aggregationType][this.last_index][i] = response.data.attentions_results[0][this.last_index][i]
-            }
-          }).catch(error => (error.message))
-          this.hideHeadsLayers = false
-        } else {
-          this.hideHeadsLayers = true
-          for (const i of Array(this.inputs_api.length).keys()) {
-            this.inputs[i].values = this.attentionResults[this.aggregationType][this.last_index][i]
-          }
-        }
-      } else {
-        if (this.aggregationType === 3) {
-          this.hideHeadsLayers = false
-        } else {
-          this.hideHeadsLayers = true
-        }
-        for (const i of Array(this.inputs_api.length).keys()) {
-          this.inputs[i].values = this.this_input_api[i].values
-        }
-      }
-    },
+    // visualizeNewAggregation () {
+    //   if (this.last_index !== 'no_index') {
+    //     if (this.aggregationType === 3) {
+    //       this.$axios.post(this.backendIP + '/ComputeAttention', {
+    //         inputs: this.inputs_api,
+    //         output_fields: this.output_fields[this.datasetType],
+    //         attentions: this.attentions,
+    //         output_indexes: this.output_indexes,
+    //         aggregation_type: 'custom',
+    //         selected_heads: this.selected_heads,
+    //         selected_layers: this.selected_layers,
+    //         headsCustomOp: this.headsCustomOp,
+    //         layersCustomOp: this.layersCustomOp
+    //       }).then((response) => {
+    //         for (const i of Array(this.inputs_api.length).keys()) {
+    //           this.inputs[i].values = response.data.attentions_results[0][this.last_index][i]
+    //           this.attentionResults[this.aggregationType][this.last_index][i] = response.data.attentions_results[0][this.last_index][i]
+    //         }
+    //       }).catch(error => (error.message))
+    //       this.hideHeadsLayers = false
+    //     } else {
+    //       this.hideHeadsLayers = true
+    //       for (const i of Array(this.inputs_api.length).keys()) {
+    //         this.inputs[i].values = this.attentionResults[this.aggregationType][this.last_index][i]
+    //       }
+    //     }
+    //   } else {
+    //     if (this.aggregationType === 3) {
+    //       this.hideHeadsLayers = false
+    //     } else {
+    //       this.hideHeadsLayers = true
+    //     }
+    //     for (const i of Array(this.inputs_api.length).keys()) {
+    //       this.inputs[i].values = this.this_input_api[i].values
+    //     }
+    //   }
+    // },
     count_warns (row) {
       var nWarn = 0
       for (var field of this.output_fields[this.datasetType]) {
@@ -1182,6 +1178,7 @@ export default {
     }
   },
   created () {
+    this.columns = this.columns2
     this.$axios.get(this.backendIP + '/getJSONs')
       .then((response) => {
         this.dataset_json[1] = response.data[0]
