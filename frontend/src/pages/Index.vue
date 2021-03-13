@@ -364,11 +364,11 @@
                   stack-label
                   outlined
                   dense
-                  :bg-color='dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output_fields[datasetType][index]].fixed ? "info" : getOutputColor(output.confidence)) : getOutputColor(output.confidence)'
-                  :label="output.field + ' [' + (dataset_json[datasetType][id]? dataset_json[datasetType][id].fields[output_fields[datasetType][index]].confidence: output.confidence) + ']'" >
+                  :bg-color='dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output.field].fixed ? "info" : getOutputColor(output.confidence)) : getOutputColor(output.confidence)'
+                  :label="output.field + ' [' + (dataset_json[datasetType][id]? dataset_json[datasetType][id].fields[output.field].confidence: output.confidence) + ']'" >
                     <template v-slot:control>
                       <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">
-                        {{dataset_json[datasetType][id]? (dataset_json[datasetType][id].fields[output_fields[datasetType][index]].fixed ? dataset_json[datasetType][id].fields[output_fields[datasetType][index]].value : output.value): output.value}}
+                        {{dataset_json[datasetType][id]? (dataset_json[datasetType][id].fields[output.field].fixed ? dataset_json[datasetType][id].fields[output.field].value : output.value): output.value}}
                       </div>
                     </template>
 
@@ -407,7 +407,7 @@
               <q-field borderless label="Selected Field:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
-                    {{ output_fields[datasetType][last_index] }}
+                    {{ output_fields_all[last_index] }}
                   </div>
                 </template>
               </q-field>
@@ -618,7 +618,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://bc41a090107a.ngrok.io',
+      backendIP: 'https://6de876c2595f.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -730,7 +730,7 @@ export default {
         { name: 'Sex', align: 'left', label: 'Sex', field: row => row.fields.Sex.value, sortable: false },
         { name: 'Ethnicity', align: 'left', label: 'Ethnicity', field: row => row.fields.Ethnicity.value, sortable: false },
         { name: 'Health status', align: 'left', label: 'Health status', field: row => row.fields['Health status'].value, sortable: false },
-        { name: 'Classification', align: 'left', label: 'Classification', field: row => row.fields.Classification.value, sortable: false },
+        // { name: 'Classification', align: 'left', label: 'Classification', field: row => row.fields.Classification.value, sortable: false },
         { name: 'Cell Line', align: 'left', label: 'Cell Line', field: row => row.fields['Cell Line'].value, sortable: false },
         { name: 'Tissue Type', align: 'left', label: 'Tissue Type', field: row => row.fields['Tissue Type'].value, sortable: false }
       ],
@@ -745,6 +745,22 @@ export default {
       attentionResults: [],
       gradientResults: [],
       outputs: [],
+      output_fields_all: [
+        'Investigated as',
+        'Assay name',
+        'Assay type',
+        'Target of assay',
+        'Biosample term name',
+        'Organism',
+        'Life stage',
+        'Age',
+        'Age units',
+        'Sex',
+        'Ethnicity',
+        'Health status',
+        'Cell Line',
+        'Tissue Type'
+      ],
       output_fields: {
         1: [
           'Cell Line',

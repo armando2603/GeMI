@@ -373,23 +373,27 @@ class Predictor:
                             confidence=np.round(np.float(confidences[i]), 2),
                             fixed=False
                         )
-                prediction = prediction_list[0][:-1] + prediction_list[1]
-                table_json.append(
-                    dict(
-                        id=it,
-                        GSE=input_dict['GSE'],
-                        GSM=input_dict['GSM'],
-                        input=self.tokenizer.decode(
-                            self.tokenizer.encode(
-                                input_dict['input_text'].strip(),
-                                truncation=True,
-                                max_length=self.MAX_LEN
-                            )
-                        ),
-                        prediction_text=self.tokenizer.decode(prediction),
-                        fields=fields_dict
+        prediction = (
+            prediction_list[0][:-1]
+            + [int(self.tokenizer.eos_token_id)]
+            + prediction_list[1]
+        )
+        table_json.append(
+            dict(
+                id=it,
+                GSE=input_dict['GSE'],
+                GSM=input_dict['GSM'],
+                input=self.tokenizer.decode(
+                    self.tokenizer.encode(
+                        input_dict['input_text'].strip(),
+                        truncation=True,
+                        max_length=self.MAX_LEN
                     )
-                )
+                ),
+                prediction_text=self.tokenizer.decode(prediction),
+                fields=fields_dict
+            )
+        )
         return table_json
 
     def extract_values(self, text_ids, distributions):

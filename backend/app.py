@@ -27,7 +27,7 @@ def gradientParser(
     output_split = []
     for i in range(len(output_indexes)):
         if output_indexes[i] == -1:
-            output_split.append([data['output_fields'][i], '<missing>'])
+            output_split.append([output_fields[i], '<missing>'])
         else:
             if i < len(output_indexes) - 1:
                 value = pred.tokenizer.decode(output_ids[
@@ -35,10 +35,10 @@ def gradientParser(
                         pred.tokenizer.encode(output_fields[i+1])
                     )-2
                 ])
-                output_split.append([data['output_fields'][i], value])
+                output_split.append([output_fields[i], value])
             else:
                 value = pred.tokenizer.decode(output_ids[output_indexes[i]:-1])
-                output_split.append([data['output_fields'][i], value])
+                output_split.append([output_fields[i], value])
 
     # colors = ['red-3'] * 15 + ['orange-3'] * 8 + ['green-3'] * 3
     def get_color(i):
