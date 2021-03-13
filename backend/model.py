@@ -59,17 +59,17 @@ class Predictor:
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
         self.model.resize_token_embeddings(len(self.tokenizer))
 
-        checkpoint = torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
-        state_dict = checkpoint['state_dict']
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            if k[:6] == 'model.':
-                name = k[6:]
-            else:
-                name = k
-            new_state_dict[name] = v
-        self.model.load_state_dict(new_state_dict)
-        torch.save(self.model.state_dict(), 'Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+        # checkpoint = torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+        # state_dict = checkpoint['state_dict']
+        # new_state_dict = OrderedDict()
+        # for k, v in state_dict.items():
+        #     if k[:6] == 'model.':
+        #         name = k[6:]
+        #     else:
+        #         name = k
+        #     new_state_dict[name] = v
+        # self.model.load_state_dict(new_state_dict)
+        # torch.save(self.model.state_dict(), 'Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
 
         # self.model.load_state_dict(
         #     torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
