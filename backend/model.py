@@ -373,28 +373,28 @@ class Predictor:
                             confidence=np.round(np.float(confidences[i]), 2),
                             fixed=False
                         )
-        prediction = (
-            prediction_list[0][:-1]
-            + [int(self.tokenizer.eos_token_id)]
-            + prediction_list[1]
-        )
-        table_json.append(
-            dict(
-                id=it,
-                GSE=input_dict['GSE'],
-                GSM=input_dict['GSM'],
-                input=self.tokenizer.decode(
-                    self.tokenizer.encode(
-                        input_dict['input_text'].strip(),
-                        truncation=True,
-                        max_length=self.MAX_LEN
-                    )
-                ),
-                prediction_text=self.tokenizer.decode(prediction),
-                fields=fields_dict
+            prediction = (
+                prediction_list[0][:-1]
+                + [int(self.tokenizer.eos_token_id)]
+                + prediction_list[1]
             )
-        )
-        return table_json
+            table_json.append(
+                dict(
+                    id=it,
+                    GSE=input_dict['GSE'],
+                    GSM=input_dict['GSM'],
+                    input=self.tokenizer.decode(
+                        self.tokenizer.encode(
+                            input_dict['input_text'].strip(),
+                            truncation=True,
+                            max_length=self.MAX_LEN
+                        )
+                    ),
+                    prediction_text=self.tokenizer.decode(prediction),
+                    fields=fields_dict
+                )
+            )
+            return table_json
 
     def extract_values(self, text_ids, distributions):
         output_indexes = []
@@ -511,10 +511,10 @@ class Predictor:
             input_ids.shape[1] + 2
         ) * -100
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=8e-6)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-5)
         new_output = torch.empty(output_ids.shape, device=self.device)
         not_match = True
-        max_epochs = 3
+        max_epochs = 5
         epoch = 0
         while (not_match and epoch < max_epochs):
             epoch += 1

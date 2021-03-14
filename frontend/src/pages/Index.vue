@@ -1,5 +1,5 @@
 <template>
-  <div class='q-pt-sm'>
+  <div class='q-pt-sm q-pb-md'>
     <div class='q-pt-md justify-evenly column'>
     <div style="width: 100%">
       <template>
@@ -14,7 +14,7 @@
             wrap-cells
             separator="cell"
             virtual-scroll
-            :data="dataset_json[this.datasetType]"
+            :data="showCorrected ? corrected_json : dataset_json[this.datasetType]"
             :columns="columns"
             row-key="id"
             selection="single"
@@ -208,6 +208,12 @@
                   @click="deleteTable()"
                 />
               </div>
+              <q-space />
+              <q-toggle
+                label="Correct Table"
+                color="green-3"
+                v-model="showCorrected"
+              />
           </template>
           </q-table>
         </div>
@@ -348,7 +354,7 @@
                     </q-card-section>
 
                     <q-card-actions v-if='!loadingRegenerating && !loadingRetraining' class="row justify-evenly">
-                      <q-btn class="q-pb-sm" flat :label="missingEdit ? 'Back' : 'No'" color="primary" @click='missingEdit=false' v-close-popup />
+                      <q-btn class="q-pb-sm" flat :label="missingEdit ? 'Back' : 'No'" color="primary" @click='missingEdit=false;confirmSaveAndTrain=false'/>
                       <q-btn class="q-pb-sm" v-if='!missingEdit' flat label="Yes" @click='saveAndTrain()' color="primary"/>
                     </q-card-actions>
                   </q-card>
@@ -571,6 +577,8 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      showCorrected: false,
+      corrected_json: [],
       missingEdit: false,
       correctionTable: undefined,
       loadingRetraining: false,
@@ -621,7 +629,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://b01ac537ad85.ngrok.io',
+      backendIP: 'https://0726f37b815d.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -1106,6 +1114,13 @@ export default {
       if (this.editType === 'new') {
         this.changeOutput()
       }
+      for (const newIndex in this.correctionTable) {
+        if (this.correctionTable[newIndex].confidence <= this.greenThreshold) {
+          this.last_index = newIndex
+          this.visualize(newIndex)
+          break
+        }
+      }
     },
     getJSON () {
       this.$axios.get(this.backendIP + '/getJSONs')
@@ -1136,13 +1151,13 @@ export default {
       this.loadingRetraining = true
       const outputText = { 1: '', 2: '' }
       let tableType
-      for (const index in this.correctionTable) {
+      for (const [index, output] of this.correctionTable.entries()) {
         if (index < this.correctionTable.length - 2) tableType = 2
         else tableType = 1
-        outputText[tableType] += this.correctionTable[index].field + ': ' + this.correctionTable[index].value
-        console.log(this.correctionTable.length - 1)
-        console.log(index)
-        if (index === (this.correctionTable.length - 1)) {
+        outputText[tableType] += output.field + ': ' + output.value
+        // console.log(this.correctionTable[index].field)
+        // console.log(this.output_fields[tableType].slice(-1))
+        if (output.field === this.output_fields[tableType].slice(-1)[0]) {
           outputText[tableType] += '<EOS>'
         } else {
           outputText[tableType] += '<SEPO>'
@@ -1183,7 +1198,7 @@ export default {
           // this.dataset_json[this.datasetType] = response.data
           const newTable = response.data
           for (const [index, row] of this.dataset_json[this.datasetType].entries()) {
-            for (const field of this.output_fields[2]) {
+            for (const field of this.output_fields_all) {
               if (this.dataset_json[this.datasetType][index].fields[field].fixed) {
                 // console.log('uno fixato')
                 // console.log(row.fields[field].value)
@@ -1194,6 +1209,9 @@ export default {
             }
             this.loadingRegenerating = false
           }
+          const correctedRow = JSON.parse(JSON.stringify(this.dataset_json[this.datasetType][this.id]))
+          this.corrected_json.push(correctedRow)
+          this.dataset_json[this.datasetType].splice(this.id, 1)
           this.dataset_json[this.datasetType] = newTable
           console.log('dovrebbe aver salvato')
           this.store_json()
