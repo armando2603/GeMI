@@ -294,18 +294,20 @@ class Predictor:
         table_json = []
         model_ids = [2, 1]
         prediction_list = []
-        for model_id in model_ids:
-            if model_id == 2:
-                self.model.load_state_dict(
-                    torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
-                )
-            if model_id == 1:
-                self.model.load_state_dict(
-                    torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
-                )
-                self.fields = ['Cell Line', 'Tissue Type']
-            with torch.no_grad():
-                for it, input_dict in enumerate(tqdm(list_input_dict)):
+        fields_2 = self.fields
+        with torch.no_grad():
+            for it, input_dict in enumerate(tqdm(list_input_dict)):
+                for model_id in model_ids:
+                    if model_id == 2:
+                        self.model.load_state_dict(
+                            torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+                        )
+                        self.fields = fields_2
+                    if model_id == 1:
+                        self.model.load_state_dict(
+                            torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+                        )
+                        self.fields = ['Cell Line', 'Tissue Type']
                     # print(input_text)
                     input_ids = self.tokenizer.encode(
                         input_dict['input_text'].strip(),
@@ -373,27 +375,27 @@ class Predictor:
                             confidence=np.round(np.float(confidences[i]), 2),
                             fixed=False
                         )
-            prediction = (
-                prediction_list[0][:-1]
-                + [int(self.tokenizer.eos_token_id)]
-                + prediction_list[1]
-            )
-            table_json.append(
-                dict(
-                    id=it,
-                    GSE=input_dict['GSE'],
-                    GSM=input_dict['GSM'],
-                    input=self.tokenizer.decode(
-                        self.tokenizer.encode(
-                            input_dict['input_text'].strip(),
-                            truncation=True,
-                            max_length=self.MAX_LEN
-                        )
-                    ),
-                    prediction_text=self.tokenizer.decode(prediction),
-                    fields=fields_dict
+                prediction = (
+                    prediction_list[0][:-1]
+                    + [int(self.tokenizer.eos_token_id)]
+                    + prediction_list[1]
                 )
-            )
+                table_json.append(
+                    dict(
+                        id=it,
+                        GSE=input_dict['GSE'],
+                        GSM=input_dict['GSM'],
+                        input=self.tokenizer.decode(
+                            self.tokenizer.encode(
+                                input_dict['input_text'].strip(),
+                                truncation=True,
+                                max_length=self.MAX_LEN
+                            )
+                        ),
+                        prediction_text=self.tokenizer.decode(prediction),
+                        fields=fields_dict
+                    )
+                )
             return table_json
 
     def extract_values(self, text_ids, distributions):
