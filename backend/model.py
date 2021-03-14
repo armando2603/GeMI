@@ -477,6 +477,14 @@ class Predictor:
         return values, confidences
 
     def onlineLearning(self, input_text, output_text):
+        if self.model_id == 2:
+            self.model.load_state_dict(
+                torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+            )
+        if self.model_id == 1:
+            self.model.load_state_dict(
+                torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+            )
         input_ids = self.tokenizer.encode(
             input_text,
             return_tensors='pt',
@@ -503,7 +511,7 @@ class Predictor:
             input_ids.shape[1] + 2
         ) * -100
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=2e-6)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-6)
         new_output = torch.empty(output_ids.shape, device=self.device)
         not_match = True
         max_epochs = 5
@@ -560,10 +568,20 @@ class Predictor:
                 if new_output.shape == output_ids.shape:
                     if torch.all(new_output.eq(output_ids)):
                         not_match = False
-        torch.save(
-            self.model.state_dict(),
-            'Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
-        )
+        if self.model_id == 2:
+            torch.save(
+                self.model.state_dict(),
+                'Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
+            )
+        if self.model_id == 1:
+            torch.save(
+                self.model.state_dict(),
+                'Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt'
+            )
+        # torch.save(
+        #     self.model.state_dict(),
+        #     'Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
+        # )
         # self.model.load_state_dict(
         #     torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
         # )

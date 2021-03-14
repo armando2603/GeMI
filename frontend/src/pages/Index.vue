@@ -1,9 +1,9 @@
 <template>
-  <div class='q-pa-md'>
+  <div class='q-pt-sm'>
     <div class='q-pt-md justify-evenly column'>
     <div style="width: 100%">
       <template>
-        <div class="q-ml-xl q-mr-xl row justify-evenly">
+        <div class="q-ml-md q-mr-md row justify-evenly">
           <q-table
             class=''
             style='max-height: 500px; max-width: 100%'
@@ -213,8 +213,8 @@
         </div>
       </template>
     </div>
-    <div class='q-pt-xl justify-center row'>
-      <div class="q-pa-md">
+    <div class='q-pt-xl justify-evenly row'>
+      <div class="q-pt-md">
         <!-- <div class='row justify-end q-pb-md'> -->
           <!-- <q-input
           class='input-id q-pb-md'
@@ -290,7 +290,7 @@
           </q-card-section>
         </q-card>
       </div>
-      <div class='q-pa-xl'>
+      <div class='q-pt-xl q-pl-sm q-pr-sm'>
         <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
       </div>
       <div>
@@ -322,12 +322,12 @@
           <q-btn :disable="!gpt2Computed || editcard || (last_index === 'no_index')" round color='primary' icon='rule' @click='editcard=true'/>
           </div>
         </div> -->
-        <div class="q-pa-md">
+        <div class="q-pt-md q-pr-sm">
           <q-card style='min-width: 400px'>
             <q-card-section>
               <div class="justify-evenly row">
                 <div class="text-h6 text-primary">Extracted Values</div>
-                <q-btn color="primary" round icon='save' @click='confirmSaveAndTrain=true' />
+                <q-btn color="primary" round icon='save' @click='checkWarns(); confirmSaveAndTrain=true' />
               </div>
               <div>
                 <q-dialog v-model="confirmSaveAndTrain" persistent>
@@ -341,14 +341,15 @@
                       <q-spinner color="primary" size="3em" />
                     </q-card-section>
                     <q-card-section class="row justify-evenly">
-                      <span v-if='!loadingRegenerating && !loadingRetraining' class="q-ml-sm">You want to submit your corrections??</span>
+                      <span v-if='!loadingRegenerating && !loadingRetraining && !missingEdit' class="q-ml-sm">You want to submit your corrections??</span>
                       <span v-if='loadingRegenerating' class="q-ml-sm">Updating the table...</span>
                       <span v-if='loadingRetraining' class="q-ml-sm">Training the model...</span>
+                      <span v-if='missingEdit' class="q-ml-sm">Please edit or confirm all red and yellow values</span>
                     </q-card-section>
 
                     <q-card-actions v-if='!loadingRegenerating && !loadingRetraining' class="row justify-evenly">
-                      <q-btn class="q-pb-sm" flat label="No" color="primary" v-close-popup />
-                      <q-btn class="q-pb-sm" flat label="Yes" @click='saveAndTrain()' color="primary"/>
+                      <q-btn class="q-pb-sm" flat :label="missingEdit ? 'Back' : 'No'" color="primary" @click='missingEdit=false' v-close-popup />
+                      <q-btn class="q-pb-sm" v-if='!missingEdit' flat label="Yes" @click='saveAndTrain()' color="primary"/>
                     </q-card-actions>
                   </q-card>
                 </q-dialog>
@@ -364,11 +365,11 @@
                   stack-label
                   outlined
                   dense
-                  :bg-color='dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output.field].fixed ? "info" : getOutputColor(output.confidence)) : getOutputColor(output.confidence)'
-                  :label="output.field + ' [' + (dataset_json[datasetType][id]? dataset_json[datasetType][id].fields[output.field].confidence: output.confidence) + ']'" >
+                  :bg-color='correctionTable ? (correctionTable[index].fixed ? "info" : getOutputColor(output.confidence)) : getOutputColor(output.confidence)'
+                  :label="output.field + ' [' + (correctionTable? correctionTable[index].confidence: output.confidence) + ']'" >
                     <template v-slot:control>
                       <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">
-                        {{dataset_json[datasetType][id]? (dataset_json[datasetType][id].fields[output.field].fixed ? dataset_json[datasetType][id].fields[output.field].value : output.value): output.value}}
+                        {{correctionTable? (correctionTable[index].fixed ? correctionTable[index].value : output.value): output.value}}
                       </div>
                     </template>
 
@@ -393,7 +394,7 @@
           </q-card>
         </div>
       </div>
-      <div class="q-pa-md" v-if='editcard && gpt2Computed'>
+      <div class="q-pt-md" v-if='editcard && gpt2Computed'>
         <q-card>
           <q-card-section>
             <div class="text-h6 text-primary row justify-center">Fix Output</div>
@@ -428,7 +429,7 @@
               <q-field borderless label="Last edited value:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
-                    {{ dataset_json[datasetType][id] ? (dataset_json[datasetType][id].fields[output_fields[datasetType][last_index]].fixed ? dataset_json[datasetType][id].fields[output_fields[datasetType][last_index]].value : 'Not edited') : 'Not edited' }}
+                    {{ correctionTable ? (correctionTable[last_index].fixed ? correctionTable[last_index].value : 'Not edited') : 'Not edited' }}
                   </div>
                 </template>
               </q-field>
@@ -544,7 +545,7 @@
   max-width: 65%
 .output-field
   width: 125px
-  height: 95px
+  height: auto
 .my-outputs
   min-height: 150px
   max-width: 430px
@@ -570,6 +571,8 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      missingEdit: false,
+      correctionTable: undefined,
       loadingRetraining: false,
       loadingRegenerating: false,
       confirmSaveAndTrain: false,
@@ -618,7 +621,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://bdb5ac2f404a.ngrok.io',
+      backendIP: 'https://101b007e1d8b.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -800,6 +803,7 @@ export default {
         }).then((response) => {
           // this.attentions = response.data.attentions
           this.outputs = response.data.outputs
+          this.correctionTable = JSON.parse(JSON.stringify(this.outputs))
           this.gradientResults = response.data.gradient
           // this.output_indexes = response.data.output_indexes
           // this.attentionResults = response.data.attentions_results
@@ -995,15 +999,20 @@ export default {
       ).catch(error => (error.message))
     },
     changeOutput () {
-      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].value = this.edit_text
-      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].confidence = 1
-      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].fixed = true
-      this.store_json()
+      // this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].value = this.edit_text
+      // this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].confidence = 1
+      // this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].fixed = true
+      // this.store_json()
+      this.correctionTable[this.last_index].confidence = 1
+      this.correctionTable[this.last_index].fixed = true
+      this.correctionTable[this.last_index].value = this.edit_text
     },
     confirmOutput () {
-      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].confidence = 1
-      this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].fixed = true
-      this.store_json()
+      // this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].confidence = 1
+      // this.dataset_json[this.datasetType][this.id].fields[this.output_fields[this.datasetType][this.last_index]].fixed = true
+      // this.store_json()
+      this.correctionTable[this.last_index].confidence = 1
+      this.correctionTable[this.last_index].fixed = true
     },
     exportTable () {
       const status = exportFile(
@@ -1125,13 +1134,16 @@ export default {
     },
     saveAndTrain () {
       this.loadingRetraining = true
-      let outputText = ''
-      for (const [index, field] of this.output_fields[this.datasetType].entries()) {
-        outputText += field + ': ' + this.dataset_json[this.datasetType][this.id].fields[field].value
-        if (index === (this.output_fields[this.datasetType].length - 1)) {
-          outputText += '<EOS>'
+      const outputText = { 1: '', 2: '' }
+      let tableType
+      for (const index in this.correctionTable) {
+        if (index < this.correctionTable.length - 3) tableType = 2
+        else tableType = 1
+        outputText[tableType] += this.correctionTable[index].field + ': ' + this.correctionTable[index].value
+        if (index === (this.generatedTable.length - 1 || this.generatedTable.length - 3)) {
+          outputText[tableType] += '<EOS>'
         } else {
-          outputText += '<SEPO>'
+          outputText[tableType] += '<SEPO>'
         }
       }
       // console.log(this.output_fields[2].slice(-1))
@@ -1150,6 +1162,11 @@ export default {
             GSE: row.GSE,
             GSM: row.GSM
           })
+        }
+        for (const [index, field] of this.output_fields_all.entries()) {
+          this.dataset_json[this.datasetType][this.id].fields[field].value = this.correctionTable[index].value
+          this.dataset_json[this.datasetType][this.id].fields[field].confidence = this.correctionTable[index].confidence
+          this.dataset_json[this.datasetType][this.id].fields[field].fixed = this.correctionTable[index].fixed
         }
         this.loadingRetraining = false
         this.loadingRegenerating = true
@@ -1190,6 +1207,11 @@ export default {
       else {
         if (confidence < this.redThreshold) return 'red-3'
         else return 'orange-3'
+      }
+    },
+    checkWarns () {
+      for (const index in this.correctionTable) {
+        if (this.correctionTable[index].confidence <= this.greenThreshold) this.missingEdit = true
       }
     }
   },

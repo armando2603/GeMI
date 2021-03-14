@@ -54,6 +54,7 @@ def gradientParser(
         field=elem[0],
         value=elem[1].strip(),
         color=get_color(i),
+        fixed=False,
         confidence=np.round(np.float64(confidences[i]), 2)
         ) for i, elem in enumerate(output_split)]
     # gradient saliency
@@ -727,11 +728,11 @@ def AttentionParse(
 @app.route('/saveAndTrain', methods=['POST'])
 def saveAndTrain():
     data = request.get_json()
-    pred.model_id = 2
-    input_text = data['input_text']
-    output_text = data['output_text']
-    pred.onlineLearning(input_text, output_text)
-
+    for index in [1, 2]:
+        pred.model_id = index
+        input_text = data['input_text']
+        output_text = data['output_text'][index]
+        pred.onlineLearning(input_text, output_text)
     return 'okay'
 
 
