@@ -511,10 +511,10 @@ class Predictor:
             input_ids.shape[1] + 2
         ) * -100
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-6)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=8e-6)
         new_output = torch.empty(output_ids.shape, device=self.device)
         not_match = True
-        max_epochs = 5
+        max_epochs = 3
         epoch = 0
         while (not_match and epoch < max_epochs):
             epoch += 1

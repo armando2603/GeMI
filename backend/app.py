@@ -731,7 +731,7 @@ def saveAndTrain():
     for index in [1, 2]:
         pred.model_id = index
         input_text = data['input_text']
-        output_text = data['output_text'][index]
+        output_text = data['output_text'][str(index)]
         pred.onlineLearning(input_text, output_text)
     return 'okay'
 

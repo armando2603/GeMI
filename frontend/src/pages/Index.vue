@@ -621,7 +621,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://101b007e1d8b.ngrok.io',
+      backendIP: 'https://b01ac537ad85.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -1137,17 +1137,19 @@ export default {
       const outputText = { 1: '', 2: '' }
       let tableType
       for (const index in this.correctionTable) {
-        if (index < this.correctionTable.length - 3) tableType = 2
+        if (index < this.correctionTable.length - 2) tableType = 2
         else tableType = 1
         outputText[tableType] += this.correctionTable[index].field + ': ' + this.correctionTable[index].value
-        if (index === (this.generatedTable.length - 1 || this.generatedTable.length - 3)) {
+        console.log(this.correctionTable.length - 1)
+        console.log(index)
+        if (index === (this.correctionTable.length - 1)) {
           outputText[tableType] += '<EOS>'
         } else {
           outputText[tableType] += '<SEPO>'
         }
       }
       // console.log(this.output_fields[2].slice(-1))
-      // console.log(outputText)
+      console.log(outputText)
       this.$axios.post(
         this.backendIP + '/saveAndTrain',
         {
@@ -1197,9 +1199,13 @@ export default {
           this.store_json()
           this.confirmSaveAndTrain = false
           this.resetPage()
+        }).catch(error => {
+          console.log(error.message)
+          this.confirmSaveAndTrain = false
         })
       }).catch(error => {
         console.log(error.message)
+        this.loadingRetraining = false
       })
     },
     getOutputColor (confidence) {
