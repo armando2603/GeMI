@@ -89,19 +89,32 @@
                     <!-- </q-card-section> -->
                     <!-- <div class="row justify-start q-ml-md">
                       <div class="text-grey-8 q-mt-sm">
-                        Select a Type of input :
+                        Select input type :
                       </div>
                       <div class="row">
-                        <q-radio v-model="GEOType" val="GSM" label="GSM" />
-                        <q-radio v-model="GEOType" val="GSE" label="GSE" />
+                        <q-radio v-model="searchType" val="input" label="input text" />
+                        <q-radio v-model="searchType" val="upload" label="upload file" />
                       </div>
                     </div> -->
-                    <q-card-section class="row justify-start">
+                    <q-card-section>
+                      <div class="row justify-center">
+                      <q-file style="width:300px" accept='.text, .txt' filled bottom-slots v-model="fileGEO" label="Upload a text file" @input='loadText()'  counter>
+                        <template v-slot:prepend>
+                          <q-icon name="cloud_upload" />
+                        </template>
+                        <template v-slot:append>
+                          <q-icon name="close" @click="fileGEO = null" class="cursor-pointer" />
+                        </template>
+                        <!-- <template v-slot:hint>
+                          Field hint
+                        </template> -->
+                      </q-file>
+                      </div>
                       <div class="q-mr-md q-mt-md text-grey-8">
                         {{'Insert a list of ' + 'GSES or GSMS' + ' :'}}
                       </div>
-                      <div style="width: 80%">
-                        <q-input outlined type='textarea' style="width:100%; max-height: 80px" v-model="GEO_list_text" stack-label placeholder="e.g GSE84422, GSM2233519..."/>
+                      <div style="width: 95%">
+                        <q-input outlined type='textarea' style="width:100%; max-height: 100px" v-model="GEO_list_text" stack-label placeholder="e.g GSE84422, GSM2233519..."/>
                       </div>
                     </q-card-section>
                     <div class='q-p-none q-m-none row justify-evenly'>
@@ -586,6 +599,8 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      fileGEO: null,
+      searchType: 'input',
       tableType: 'principal',
       table_json: {
         principal: [],
@@ -642,7 +657,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://0a4d8cb95f33.ngrok.io',
+      backendIP: 'https://34543a779052.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -798,8 +813,8 @@ export default {
         'Sex of the organism',
         'Ethnicity of the donor',
         'Brief description of the health status',
-        'Cell Line',
-        'Tissue Type'
+        'The cell line',
+        'The tissue type'
       ],
       output_fields: {
         1: [
@@ -1089,27 +1104,35 @@ export default {
         this.error_text = 'Something went wrong with the loading'
       })
     },
-    searchSamples () {
-      if (this.GEO_list_text.trim() === '') {
-        this.GSMS_data = []
-        return
+    loadText () {
+      var reader = new FileReader()
+      reader.onload = (e) => {
+        console.log(reader.result)
+        this.GEO_list_text = reader.result
       }
-      this.show_error = false
-      this.searchingSamples = true
-      const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
-      console.log(searchList)
-      this.$axios.post(
-        this.backendIP + '/searchGEO',
-        { searchList: searchList }
-      ).then(response => {
-        this.GSMS_data = response.data
-        this.searchingSamples = false
-      }).catch(error => {
-        console.log(error.message)
-        this.searchingSamples = false
-        this.show_error = true
-        this.error_text = 'Something went wrong, please control the input'
-      })
+      reader.readAsText(this.fileGEO)
+    },
+    searchSamples () {
+      // if (this.GEO_list_text.trim() === '') {
+      //   this.GSMS_data = []
+      //   return
+      // }
+      // this.show_error = false
+      // this.searchingSamples = true
+      // const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
+      // console.log(searchList)
+      // this.$axios.post(
+      //   this.backendIP + '/searchGEO',
+      //   { searchList: searchList }
+      // ).then(response => {
+      //   this.GSMS_data = response.data
+      //   this.searchingSamples = false
+      // }).catch(error => {
+      //   console.log(error.message)
+      //   this.searchingSamples = false
+      //   this.show_error = true
+      //   this.error_text = 'Something went wrong, please control the input'
+      // })
     },
     deleteTable () {
       this.$axios.post(

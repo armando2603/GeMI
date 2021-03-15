@@ -4,6 +4,7 @@ import torch
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 import torch.nn.functional as F
 from tqdm import tqdm
+from os import path
 
 
 def gradient_x_inputs_attribution(prediction_logit, inputs_embeds):
@@ -59,20 +60,37 @@ class Predictor:
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
         self.model.resize_token_embeddings(len(self.tokenizer))
 
-        # checkpoint = torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
-        # state_dict = checkpoint['state_dict']
-        # new_state_dict = OrderedDict()
-        # for k, v in state_dict.items():
-        #     if k[:6] == 'model.':
-        #         name = k[6:]
-        #     else:
-        #         name = k
-        #     new_state_dict[name] = v
-        # self.model.load_state_dict(new_state_dict)
-        # torch.save(self.model.state_dict(), 'Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+        self.name_model_2 = 'checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
+        self.name_model_1 = 'checkpoint_1-epoch=13-val_loss=0.063.ckpt'
+
+        checkpoint = torch.load('Models' + self.name_model_2)
+        if 'state_dict' in checkpoint.keys():
+            state_dict = checkpoint['state_dict']
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                if k[:6] == 'model.':
+                    name = k[6:]
+                else:
+                    name = k
+                new_state_dict[name] = v
+            self.model.load_state_dict(new_state_dict)
+            torch.save(self.model.state_dict(), 'Models' + self.name_model_2)
+
+        checkpoint = torch.load('Models' + self.name_model_1)
+        if 'state_dict' in checkpoint.keys():
+            state_dict = checkpoint['state_dict']
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                if k[:6] == 'model.':
+                    name = k[6:]
+                else:
+                    name = k
+                new_state_dict[name] = v
+            self.model.load_state_dict(new_state_dict)
+            torch.save(self.model.state_dict(), 'Models' + self.name_model_1)
 
         # self.model.load_state_dict(
-        #     torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+        #     torch.load('Models' + self.name_model_2)
         # )
         # model 2
         # self.model.load_state_dict(
@@ -89,12 +107,20 @@ class Predictor:
         # self.model_2.to(self.device)
     def predict(self, list_input_text):
         if self.model_id == 2:
+            if path.isfile('Models' + 'augmented' + self.name_model_2):
+                augmented = 'augmented'
+            else:
+                augmented = ''
             self.model.load_state_dict(
-                torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+                torch.load('Models' + augmented + self.name_model_2)
             )
         if self.model_id == 1:
+            if path.isfile('Models' + 'augmented' + self.name_model_1):
+                augmented = 'augmented'
+            else:
+                augmented = ''
             self.model.load_state_dict(
-                torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+                torch.load('Models' + augmented + self.name_model_1)
             )
         list_idx = []
         for i, input_text in enumerate(list_input_text):
@@ -298,17 +324,24 @@ class Predictor:
                 prediction_list = []
                 fields_dict = dict()
                 for model_id in model_ids:
-                    if model_id == 2:
+                    if self.model_id == 2:
+                        if path.isfile('Models' + 'augmented' + self.name_model_2):
+                            augmented = 'augmented'
+                        else:
+                            augmented = ''
                         self.model.load_state_dict(
-                            torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+                            torch.load('Models' + augmented + self.name_model_2)
                         )
-                        self.fields = fields_2
-                    if model_id == 1:
+                    if self.model_id == 1:
+                        if path.isfile('Models' + 'augmented' + self.name_model_1):
+                            augmented = 'augmented'
+                        else:
+                            augmented = ''
                         self.model.load_state_dict(
-                            torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+                            torch.load('Models' + augmented + self.name_model_1)
                         )
                         self.fields = ['Cell Line', 'Tissue Type']
-                    print(input_dict['input_text'])
+                    # print(input_dict['input_text'])
                     input_ids = self.tokenizer.encode(
                         input_dict['input_text'].strip(),
                         return_tensors='pt',
@@ -482,11 +515,11 @@ class Predictor:
     def onlineLearning(self, input_text, output_text):
         if self.model_id == 2:
             self.model.load_state_dict(
-                torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+                torch.load('Models' + self.name_model_2)
             )
         if self.model_id == 1:
             self.model.load_state_dict(
-                torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
+                torch.load('Models' + self.name_model_1)
             )
         input_ids = self.tokenizer.encode(
             input_text,
@@ -514,10 +547,10 @@ class Predictor:
             input_ids.shape[1] + 2
         ) * -100
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-5)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-5)
         new_output = torch.empty(output_ids.shape, device=self.device)
         not_match = True
-        max_epochs = 5
+        max_epochs = 3
         epoch = 0
         while (not_match and epoch < max_epochs):
             epoch += 1
@@ -574,18 +607,18 @@ class Predictor:
         if self.model_id == 2:
             torch.save(
                 self.model.state_dict(),
-                'Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
+                'Models/augmented_checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
             )
         if self.model_id == 1:
             torch.save(
                 self.model.state_dict(),
-                'Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt'
+                'Models/augmented_checkpoint_1-epoch=13-val_loss=0.063.ckpt'
             )
         # torch.save(
         #     self.model.state_dict(),
-        #     'Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
+        #     'Models' + self.name_model_2
         # )
         # self.model.load_state_dict(
-        #     torch.load('Models/checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt')
+        #     torch.load('Models' + self.name_model_2)
         # )
         # self.model.eval()
