@@ -14,7 +14,7 @@
             wrap-cells
             separator="cell"
             virtual-scroll
-            :data="showCorrected ? corrected_json : dataset_json[this.datasetType]"
+            :data="table_json[tableType]"
             :columns="columns"
             row-key="id"
             selection="single"
@@ -26,7 +26,7 @@
           >
             <template v-slot:body-cell="props">
               <q-td :props="props">
-                <q-badge v-if='props.row.fields[props.col.name]' style='white-space: pre-line' :color="getColorCell(props.row, props.col)" :label='props.value'/>
+                <q-badge v-if='props.row.fields[props.col.name]' style='white-space: pre-line' :color="tableType==='corrected'?'green-4':getColorCell(props.row, props.col)" :label='props.value'/>
                 <div v-if='!props.row.fields[props.col.name]'>{{props.value}}</div>
               </q-td>
             </template>
@@ -87,7 +87,7 @@
                         ]"
                       /> -->
                     <!-- </q-card-section> -->
-                    <div class="row justify-start q-ml-md">
+                    <!-- <div class="row justify-start q-ml-md">
                       <div class="text-grey-8 q-mt-sm">
                         Select a Type of input :
                       </div>
@@ -95,13 +95,13 @@
                         <q-radio v-model="GEOType" val="GSM" label="GSM" />
                         <q-radio v-model="GEOType" val="GSE" label="GSE" />
                       </div>
-                    </div>
+                    </div> -->
                     <q-card-section class="row justify-start">
                       <div class="q-mr-md q-mt-md text-grey-8">
-                        {{'Insert a list of ' + ((GEOType === 'GSE') ? 'GSES':'GSMS') + ' :'}}
+                        {{'Insert a list of ' + 'GSES or GSMS' + ' :'}}
                       </div>
                       <div style="width: 80%">
-                        <q-input outlined type='textarea' style="width:100%; max-height: 80px" v-model="GEO_list_text" stack-label :placeholder="(GEOType === 'GSE') ? 'e.g GSE84422, GSE133349...' : 'e.g GSM2233519, GSM2233521...'"/>
+                        <q-input outlined type='textarea' style="width:100%; max-height: 80px" v-model="GEO_list_text" stack-label placeholder="e.g GSE84422, GSM2233519..."/>
                       </div>
                     </q-card-section>
                     <div class='q-p-none q-m-none row justify-evenly'>
@@ -210,9 +210,11 @@
               </div>
               <q-space />
               <q-toggle
-                label="Correct Table"
+                label="Fixed GSMs"
                 color="green-3"
-                v-model="showCorrected"
+                false-value="principal"
+                true-value="corrected"
+                v-model="tableType"
               />
           </template>
           </q-table>
@@ -258,7 +260,7 @@
             <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='orange-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
-                  {{count_warns(dataset_json[datasetType][id])}}
+                  {{count_warns(table_json[tableType][id])}}
                 </div>
               </template>
               <template v-slot:label>
@@ -270,7 +272,7 @@
             <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width: 55px' label-slot dense readonly outlined label="Fixs" label-color='green-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
-                  {{count_fixs(dataset_json[datasetType][id])}}
+                  {{count_fixs(table_json[tableType][id])}}
                 </div>
               </template>
               <template v-slot:label>
@@ -418,7 +420,14 @@
                   </div>
                 </template>
               </q-field>
-              <q-field style="{white-space: pre-line}" borderless label="Original predicted value:" label-color='primary' stack-label>
+              <q-field borderless style='width: 300px' label="Field Description:" label-color='primary' stack-label>
+                <template v-slot:control>
+                  <div class="self-center full-width no-outline" tabindex="0">
+                    {{ descriptions[last_index] }}
+                  </div>
+                </template>
+              </q-field>
+              <q-field style='width: 300px' borderless label="Original predicted value:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
                     {{ outputs[last_index].value }}
@@ -432,7 +441,7 @@
                   </div>
                 </template>
               </q-field>
-              <q-field borderless label="Last edited value:" label-color='primary' stack-label>
+              <q-field borderless style='width: 300px' label="Last edited value:" label-color='primary' stack-label>
                 <template v-slot:control>
                   <div class="self-center full-width no-outline" tabindex="0">
                     {{ correctionTable ? (correctionTable[last_index].fixed ? correctionTable[last_index].value : 'Not edited') : 'Not edited' }}
@@ -577,8 +586,12 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      tableType: 'principal',
+      table_json: {
+        principal: [],
+        corrected: []
+      },
       showCorrected: false,
-      corrected_json: [],
       missingEdit: false,
       correctionTable: undefined,
       loadingRetraining: false,
@@ -629,7 +642,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'https://fccd356c54be.ngrok.io',
+      backendIP: 'https://341f49951322.ngrok.io',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -772,6 +785,22 @@ export default {
         'Cell Line',
         'Tissue Type'
       ],
+      descriptions: [
+        'What the target was being investigated as within an assay',
+        'Type of experiment (Chip seq, rna seq, dna seq....)',
+        'Super-category of experiment type',
+        'For assays, such as ChIP-seq or RIP-seq, the name of the gene whose expression or product is under investigation for the experiment',
+        'Name of the biosample',
+        'Species of the biosample',
+        'Such as “adult” or “embryonic”',
+        'A string identifying the age',
+        'Unit measure of the age (“month”, “year” etc.)',
+        'Sex of the organism',
+        'Ethnicity of the donor',
+        'Brief description of the health status',
+        'Cell Line',
+        'Tissue Type'
+      ],
       output_fields: {
         1: [
           'Cell Line',
@@ -853,12 +882,12 @@ export default {
         this.inputs[x].values = [{ text: '', color: 'bg-white' }]
       }
       if (this.datasetType === 1) {
-        this.inputs_api[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
-        this.inputs[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
+        this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
+        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
       }
       if (this.datasetType === 2) {
-        this.inputs_api[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
-        this.inputs[0].values[0].text = this.dataset_json[this.datasetType][this.id].input
+        this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
+        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
       }
       this.isValid = true
       this.disableGpt2button = false
@@ -944,6 +973,7 @@ export default {
       this.outputs = []
       this.selected = [{ id: null }]
       this.isValid = true
+      this.tableType = 'principal'
     },
     // visualizeNewAggregation () {
     //   if (this.last_index !== 'no_index') {
@@ -1003,7 +1033,7 @@ export default {
     store_json () {
       this.$axios.post(
         this.backendIP + '/storeJSON',
-        { table: this.dataset_json[this.datasetType], table_id: this.datasetType }
+        { table: this.table_json[this.tableType], table_id: this.datasetType }
       ).catch(error => (error.message))
     },
     changeOutput () {
@@ -1025,7 +1055,7 @@ export default {
     exportTable () {
       const status = exportFile(
         'table-export.json',
-        JSON.stringify(this.dataset_json[this.datasetType]),
+        JSON.stringify(this.table_json[this.tableType]),
         'text/json'
       )
 
@@ -1046,7 +1076,7 @@ export default {
         this.$axios.get(this.backendIP + '/getJSONs')
           .then((response) => {
             // this.dataset_json[1] = response.data[0]
-            this.dataset_json[2] = response.data[1]
+            this.table_json[this.tableType] = response.data[1]
             this.loadingSamples = false
             this.uploadSamples = false
             this.show_error = false
@@ -1070,7 +1100,7 @@ export default {
       console.log(searchList)
       this.$axios.post(
         this.backendIP + '/searchGEO',
-        { searchList: searchList, type: this.GEOType }
+        { searchList: searchList }
       ).then(response => {
         this.GSMS_data = response.data
         this.searchingSamples = false
@@ -1088,7 +1118,7 @@ export default {
       ).catch(error => {
         console.log(error.message)
       })
-      this.dataset_json[2] = []
+      for (const tableType in this.table_json) this.table_json[tableType] = []
       this.resetPage()
     },
     edit () {
@@ -1096,8 +1126,8 @@ export default {
         this.backendIP + '/writeLog',
         {
           editType: this.editType,
-          GSM: this.dataset_json[this.datasetType][this.id].GSM,
-          input_text: this.dataset_json[this.datasetType][this.id].input,
+          GSM: this.table_json[this.tableType][this.id].GSM,
+          input_text: this.table_json[this.tableType][this.id].input,
           edit_text: this.edit_text,
           prediction: this.outputs[this.last_index].value,
           field: this.outputs[this.last_index].field
@@ -1126,13 +1156,13 @@ export default {
       this.$axios.get(this.backendIP + '/getJSONs')
         .then((response) => {
           this.dataset_json[1] = response.data[0]
-          this.dataset_json[2] = response.data[1]
+          this.table_json[this.tableType] = response.data[1]
         }).catch(error => (error.message))
     },
     getColorCell (row, col) {
-      if (this.dataset_json[2] !== []) {
-        if (this.dataset_json[2] !== []) {
-          const field = this.dataset_json[2][row.id].fields[col.name]
+      if (this.table_json[this.tableType] !== []) {
+        if (this.table_json[this.tableType] !== []) {
+          const field = this.table_json[this.tableType][row.id].fields[col.name]
           if (field !== undefined) {
             const confidence = field.confidence
             if (field.fixed) return 'info'
@@ -1168,12 +1198,12 @@ export default {
       this.$axios.post(
         this.backendIP + '/saveAndTrain',
         {
-          input_text: this.dataset_json[this.datasetType][this.id].input,
+          input_text: this.table_json[this.tableType][this.id].input,
           output_text: outputText
         }
       ).then((response) => {
         const inputList = []
-        for (const row of this.dataset_json[this.datasetType]) {
+        for (const row of this.table_json[this.tableType]) {
           inputList.push({
             input_text: row.input,
             GSE: row.GSE,
@@ -1181,9 +1211,9 @@ export default {
           })
         }
         for (const [index, field] of this.output_fields_all.entries()) {
-          this.dataset_json[this.datasetType][this.id].fields[field].value = this.correctionTable[index].value
-          this.dataset_json[this.datasetType][this.id].fields[field].confidence = this.correctionTable[index].confidence
-          this.dataset_json[this.datasetType][this.id].fields[field].fixed = this.correctionTable[index].fixed
+          this.table_json[this.tableType][this.id].fields[field].value = this.correctionTable[index].value
+          this.table_json[this.tableType][this.id].fields[field].confidence = this.correctionTable[index].confidence
+          this.table_json[this.tableType][this.id].fields[field].fixed = this.correctionTable[index].fixed
         }
         this.loadingRetraining = false
         this.loadingRegenerating = true
@@ -1197,9 +1227,9 @@ export default {
         ).then((response) => {
           // this.dataset_json[this.datasetType] = response.data
           const newTable = response.data
-          for (const [index, row] of this.dataset_json[this.datasetType].entries()) {
+          for (const [index, row] of this.table_json[this.tableType].entries()) {
             for (const field of this.output_fields_all) {
-              if (this.dataset_json[this.datasetType][index].fields[field].fixed) {
+              if (this.table_json[this.tableType][index].fields[field].fixed) {
                 // console.log('uno fixato')
                 // console.log(row.fields[field].value)
                 newTable[index].fields[field].value = row.fields[field].value
@@ -1209,10 +1239,17 @@ export default {
             }
             this.loadingRegenerating = false
           }
-          const correctedRow = JSON.parse(JSON.stringify(this.dataset_json[this.datasetType][this.id]))
-          this.corrected_json.push(correctedRow)
-          newTable.splice(this.id, 1)
-          this.dataset_json[this.datasetType] = newTable
+          const correctedRow = JSON.parse(JSON.stringify(this.table_json[this.tableType][this.id]))
+          correctedRow.id = this.table_json.corrected.length
+          this.table_json.corrected.push(correctedRow)
+          const filteredTable = []
+          for (const row of newTable) {
+            if (row.id !== this.id) {
+              if (row.id > this.id) row.id = row.id - 1
+              filteredTable.push(row)
+            }
+          }
+          this.table_json[this.tableType] = filteredTable
           console.log('dovrebbe aver salvato')
           this.store_json()
           this.confirmSaveAndTrain = false
@@ -1244,7 +1281,7 @@ export default {
     this.$axios.get(this.backendIP + '/getJSONs')
       .then((response) => {
         this.dataset_json[1] = response.data[0]
-        this.dataset_json[2] = response.data[1]
+        this.table_json[this.tableType] = response.data[1]
         this.resetPage()
       }).catch(error => (error.message))
   }

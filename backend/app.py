@@ -436,11 +436,11 @@ def generateTable():
 def searchGEO():
     data = request.get_json()
     search_list = data['searchList']
-    search_type = data['type']
 
     GEO_table = []
-    if search_type == 'GSM':
-        for gsm in search_list:
+    for geo in search_list:
+        if 'GSM' in geo:
+            gsm = geo
             gsm = gsm.replace('"', '')
             gsm_data = get_GEO(geo=gsm, destdir='data/GEO')
             description = (
@@ -485,8 +485,8 @@ def searchGEO():
                     description=description,
                 )
             )
-    elif search_type == 'GSE':
-        for gse in search_list:
+        if 'GSE' in geo:
+            gse = geo
             gse_data = get_GEO(geo=gse, destdir='data/GEO')
 
             for gsm in gse_data.metadata['sample_id']:
