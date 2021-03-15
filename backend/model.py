@@ -290,13 +290,13 @@ class Predictor:
         return inputs_embeds, token_ids_tensor_one_hot
 
     def generateTable(self, list_input_dict):
-        fields_dict = dict()
         table_json = []
         model_ids = [2, 1]
-        prediction_list = []
         fields_2 = self.fields
         with torch.no_grad():
             for it, input_dict in enumerate(tqdm(list_input_dict)):
+                prediction_list = []
+                fields_dict = dict()
                 for model_id in model_ids:
                     if model_id == 2:
                         self.model.load_state_dict(
@@ -308,7 +308,7 @@ class Predictor:
                             torch.load('Models/checkpoint_1-epoch=13-val_loss=0.063.ckpt')
                         )
                         self.fields = ['Cell Line', 'Tissue Type']
-                    # print(input_text)
+                    print(input_dict['input_text'])
                     input_ids = self.tokenizer.encode(
                         input_dict['input_text'].strip(),
                         return_tensors='pt',
@@ -380,6 +380,7 @@ class Predictor:
                     + [int(self.tokenizer.eos_token_id)]
                     + prediction_list[1]
                 )
+                # print(self.tokenizer.decode(prediction))
                 table_json.append(
                     dict(
                         id=it,

@@ -6,6 +6,7 @@ from GEOparse import get_GEO
 import numpy as np
 import json
 import datetime
+from os import path
 
 # configuration
 DEBUG = True
@@ -287,15 +288,18 @@ def Lime():
 
 @app.route('/getJSONs', methods=['GET'])
 def getJSONs():
-    try:
+    if path.isfile('data/table_2.json') and path.isfile('data/table_2.json'):
         with open('data/table_1.json') as f:
             table_1 = json.load(f)
         with open('data/table_2.json') as f:
             table_2 = json.load(f)
-    except:
-        new_table_2 = []
+    else:
+        table_2 = []
+        table_1 = []
         with open('data/table_2.json', 'w') as f:
-            json.dump(new_table_2, f)
+            json.dump(table_2, f)
+        with open('data/table_1.json', 'w') as f:
+            json.dump(table_1, f)
 
     return jsonify([table_1, table_2])
 
@@ -426,7 +430,7 @@ def generateTable():
     for i, elem in enumerate(new_table_json):
         new_table_json[i]['id'] = curr_id
         curr_id += 1
-
+    # print(actual_table + new_table_json)
     with open('data/table_' + dataset_type + '.json', 'w') as file:
         json.dump(actual_table + new_table_json, file)
     return 'Okay!'
