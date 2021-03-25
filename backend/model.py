@@ -62,8 +62,7 @@ class Predictor:
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
 
         self.model.resize_token_embeddings(len(self.tokenizer))
-        self.name_model_2 = 'checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
-        self.name_model_1 = 'checkpoint_1-epoch=13-val_loss=0.063.ckpt'
+        self.name_model = 'checkpoint_4-epoch=05-val_loss=0.336.ckpt'
 
         # checkpoint = torch.load('Models/' + self.name_model_2)
         # if 'state_dict' in checkpoint.keys():
@@ -108,24 +107,16 @@ class Predictor:
 
         # self.model_2.to(self.device)
 
-    def predict(self, list_input_text):
+    def predict(self, list_input_text, fields):
+        self.fields = fields
         self.model = self.base_model.to(self.device)
-        if self.model_id == 2:
-            if path.isfile('Models/' + 'augmented_' + self.name_model_2):
-                augmented = 'augmented_'
-            else:
-                augmented = ''
-            self.model.load_state_dict(
-                torch.load('Models/' + augmented + self.name_model_2)
-            )
-        if self.model_id == 1:
-            if path.isfile('Models/' + 'augmented_' + self.name_model_1):
-                augmented = 'augmented_'
-            else:
-                augmented = ''
-            self.model.load_state_dict(
-                torch.load('Models/' + augmented + self.name_model_1)
-            )
+        if path.isfile('Models/' + 'augmented_' + self.name_model):
+            augmented = 'augmented_'
+        else:
+            augmented = ''
+        self.model.load_state_dict(
+            torch.load('Models/' + augmented + self.name_model)
+        )
         list_idx = []
         for i, input_text in enumerate(list_input_text):
             end_id = self.tokenizer.eos_token_id
@@ -324,37 +315,31 @@ class Predictor:
         inputs_embeds = torch.matmul(token_ids_tensor_one_hot, embedding_matrix)
         return inputs_embeds, token_ids_tensor_one_hot
 
-    def generateTable(self, list_input_dict):
+    def generateTable(self, list_input_dict, fields):
         self.model = self.base_model.to(self.device)
         table_json = []
-        model_ids = [2, 1]
-        fields_2 = self.fields
+        self.fields = fields
         with torch.no_grad():
             for it, input_dict in enumerate(tqdm(list_input_dict)):
                 prediction_list = []
                 fields_dict = dict()
-                for model_id in model_ids:
-                    if model_id == 2:
-                        if path.isfile('Models/' + 'augmented_' + self.name_model_2):
-                            augmented = 'augmented_'
-                        else:
-                            augmented = ''
-                        self.model.load_state_dict(
-                            torch.load('Models/' + augmented + self.name_model_2)
-                        )
-                        self.fields = fields_2
-                    if model_id == 1:
-                        if path.isfile('Models/' + 'augmented_' + self.name_model_1):
-                            augmented = 'augmented_'
-                        else:
-                            augmented = ''
-                        self.model.load_state_dict(
-                            torch.load('Models/' + augmented + self.name_model_1)
-                        )
-                        self.fields = ['Cell Line', 'Tissue Type']
+                for field in self.fields:
+                    if path.isfile('Models/' + 'augmented_' + self.name_model):
+                        augmented = 'augmented_'
+                    else:
+                        augmented = ''
+                    self.model.load_state_dict(
+                        torch.load('Models/' + augmented + self.name_model)
+                    )
                     # print(input_dict['input_text'])
                     input_ids = self.tokenizer.encode(
                         input_dict['input_text'].strip(),
+                        return_tensors='pt',
+                        truncation=True,
+                        max_length=self.MAX_LEN
+                    )
+                    conditional_ids = self.tokenizer.encode(
+                        field + ':',
                         return_tensors='pt',
                         truncation=True,
                         max_length=self.MAX_LEN
@@ -364,11 +349,11 @@ class Predictor:
                         (
                             torch.tensor([[self.tokenizer.bos_token_id]]),
                             input_ids,
-                            torch.tensor([[self.tokenizer.sep_token_id]])
+                            torch.tensor([[self.tokenizer.sep_token_id]]),
+                            conditional_ids
                         ),
                         dim=-1
-                    )
-                    input_ids = input_ids.to(self.device)
+                    ).to(self.device)
                     end_id = self.tokenizer.eos_token_id
                     generated_sequence = []
                     distributions = []
@@ -392,39 +377,26 @@ class Predictor:
                             F.softmax(last_tensor, 0)
                         )
                         predicted_token_tensor = torch.argmax(last_tensor)
-                        # if predicted_token_tensor == SEPO_id:
-                        #     is_value = False
-                        #     attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
-                        #     attn_mask_value = torch.zeros(1, 0, device=self.device)
-                        # attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
-                        # if is_value:
-                        #     attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
-                        # if predicted_token_tensor == colon_id:
-                        #     is_value = True
                         input_ids = predicted_token_tensor.view(1, 1)
-                        # input_ids = torch.cat(
-                        #     (input_ids, predicted_token_tensor.view(1, 1)), dim=-1)
                         generated_sequence.append(predicted_token_tensor)
                         if predicted_token_tensor == end_id:
                             break
-                    # print(self.tokenizer.decode(generated_sequence))
+                    print(self.tokenizer.decode(generated_sequence))
                     prediction_list.append(generated_sequence)
-                    distributions = [distribution.cpu().numpy() for distribution in distributions]
-                    values, confidences = self.extract_values(
-                        generated_sequence, distributions
+                    distributions = [
+                        distribution.cpu().numpy()
+                        for distribution in distributions
+                    ]
+                    value, confidence = self.extract_values(
+                        generated_sequence, distributions, field
                     )
-                    for i, field in enumerate(self.fields):
-                        fields_dict[field] = dict(
-                            value=values[i].strip(),
-                            confidence=np.round(np.float(confidences[i]), 2),
-                            fixed=False
-                        )
-                prediction = (
-                    prediction_list[0][:-1]
-                    + [int(self.tokenizer.eos_token_id)]
-                    + prediction_list[1]
-                )
-                # print(self.tokenizer.decode(prediction))
+
+                    fields_dict[field] = dict(
+                        value=value.strip(),
+                        confidence=np.round(np.float(confidence), 2),
+                        fixed=False
+                    )
+
                 table_json.append(
                     dict(
                         id=it,
@@ -437,7 +409,6 @@ class Predictor:
                                 max_length=self.MAX_LEN
                             )
                         ),
-                        prediction_text=self.tokenizer.decode(prediction),
                         fields=fields_dict
                     )
                 )
@@ -445,85 +416,38 @@ class Predictor:
             torch.cuda.empty_cache()
             return table_json
 
-    def extract_values(self, text_ids, distributions):
-        output_indexes = []
-        for field in self.fields:
-            field_tokens = np.array(self.tokenizer.encode(field))
-            generated_sequence = np.array(text_ids)
-            indexes = np.ones(
-                len(np.where(
-                    generated_sequence == field_tokens[0])[0])
-            ) * -1
-            for i, token in enumerate(field_tokens):
-                current_indexes = np.where(
-                    generated_sequence == token)[0]
-                for n, index in enumerate(indexes):
-                    if i == 0:
-                        indexes = current_indexes
-                    else:
-                        for current_index in current_indexes:
-                            if index + 1 == current_index:
-                                indexes[n] = current_index
-                                break
-                            else:
-                                indexes[n] = -1
+    def extract_values(self, text_ids, distributions, field):
+        generated_sequence = np.array(text_ids)
 
-            if (len(np.where(indexes != -1)[0]) == 0):
-                index = -1
-            else:
-                index = indexes[np.where(indexes != -1)[0][0]] + 2
-            if index >= len(generated_sequence):
-                index = -1
-            output_indexes.append(index)
+        output_index = 0
 
-        assert not all(elem == -1 for elem in output_indexes),\
-            f'One sample are not recognized: {self.tokenizer.decode(generated_sequence)}'
-        values = []
-        for i in range(len(output_indexes)):
-            if output_indexes[i] == -1:
-                values.append('<missing>')
-            else:
-                if i < len(output_indexes) - 1:
-                    values.append(self.tokenizer.decode(generated_sequence[
-                        output_indexes[i]:output_indexes[i+1]-len(
-                            self.tokenizer.encode(self.fields[i+1])
-                        )-2
-                    ]))
-                else:
-                    values.append(
-                        self.tokenizer.decode(
-                            generated_sequence[output_indexes[i]:-1]
-                            )
-                    )
+        value = self.tokenizer.decode(
+            generated_sequence[output_index:-1]
+        )
 
-        confidences = []
-        for j in range(len(output_indexes)):
-            if output_indexes[j] == -1:
-                confidences.append(np.float64(1))
-            else:
-                # confidence 1st token
-                out_prob = distributions[output_indexes[j]]
-                confidences.append(np.max(out_prob))
-                # confidence as mul of confidences
-                # if j < len(indexes) - 1:
-                #     out_prob = distributions[
-                #         output_indexes[j]:output_indexes[j+1]
-                #         - len(
-                #             self.tokenizer.encode(self.fields[j+1])
-                #         ) - 2
-                #     ]
-                #     confidences.append(np.multiply.reduce(
-                #         np.max(out_prob, 1),
-                #         0
-                #     ))
-                # else:
-                #     out_prob = distributions[output_indexes[j]:-1]
-                #     confidences.append(np.multiply.reduce(
-                #         np.max(out_prob, 1),
-                #         0
-                #     ))
+        # confidence 1st token
+        out_prob = distributions[output_index]
+        confidence = np.max(out_prob)
+        # confidence as mul of confidences
+        # if j < len(indexes) - 1:
+        #     out_prob = distributions[
+        #         output_indexes[j]:output_indexes[j+1]
+        #         - len(
+        #             self.tokenizer.encode(self.fields[j+1])
+        #         ) - 2
+        #     ]
+        #     confidences.append(np.multiply.reduce(
+        #         np.max(out_prob, 1),
+        #         0
+        #     ))
+        # else:
+        #     out_prob = distributions[output_indexes[j]:-1]
+        #     confidences.append(np.multiply.reduce(
+        #         np.max(out_prob, 1),
+        #         0
+        #     ))
 
-        return values, confidences
+        return value, confidence
 
     def onlineLearning(self, input_text, output_text):
         self.model = self.base_model.to(self.device)

@@ -423,14 +423,8 @@ def generateTable():
         # input_text = ' '.join(input_text_words)
         input_dict = dict(GSE=gsm['GSE'], GSM=gsm['GSM'], input_text=input_text)
         input_list.append(input_dict)
-
-    dataset_type = str(data['exp_id'])
-    pred.fields = [field for field in output_fields]
-    pred.model_id = data['exp_id']
-    # with open('data/input_' + dataset_type + '.json') as f:
-    #     input_list = json.load(f)
-    # input_list = [text + ' =' for text in input_list]
-    new_table_json = pred.generateTable(input_list)
+    dataset_type = '2'
+    new_table_json = pred.generateTable(input_list, output_fields)
     if path.isfile('data/table_2.json'):
         with open('data/table_' + dataset_type + '.json', 'r') as file:
             actual_table = json.load(file)

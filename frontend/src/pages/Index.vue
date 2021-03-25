@@ -865,7 +865,9 @@ export default {
           'Age units',
           'Sex',
           'Ethnicity',
-          'Health status'
+          'Health status',
+          'Cell Line',
+          'Tissue Type'
         ]
       }
     }
@@ -925,29 +927,29 @@ export default {
       }
     },
     searchData (newSelected) {
-      this.limeComputed = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
-      this.gpt2Computed = false
-      this.editcard = false
-      this.id = this.selected[0].id
+      // this.limeComputed = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+      // this.gpt2Computed = false
+      // this.editcard = false
+      // this.id = this.selected[0].id
 
-      for (const x of Array(this.limeResults.length).keys()) {
-        this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
-      }
-      for (const x of Array(this.inputs.length).keys()) {
-        this.inputs[x].values = [{ text: '', color: 'bg-white' }]
-      }
-      if (this.datasetType === 1) {
-        this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
-      }
-      if (this.datasetType === 2) {
-        this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
-      }
-      this.isValid = true
-      this.disableGpt2button = false
-      this.last_index = 'no_index'
-      this.callModel()
+      // for (const x of Array(this.limeResults.length).keys()) {
+      //   this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
+      // }
+      // for (const x of Array(this.inputs.length).keys()) {
+      //   this.inputs[x].values = [{ text: '', color: 'bg-white' }]
+      // }
+      // if (this.datasetType === 1) {
+      //   this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
+      //   this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+      // }
+      // if (this.datasetType === 2) {
+      //   this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
+      //   this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+      // }
+      // this.isValid = true
+      // this.disableGpt2button = false
+      // this.last_index = 'no_index'
+      // this.callModel()
     },
     visualize (index) {
       if (this.last_index !== index) {
