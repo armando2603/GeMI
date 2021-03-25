@@ -288,31 +288,30 @@ def Lime():
 
 @app.route('/getJSONs', methods=['GET'])
 def getJSONs():
-    if path.isfile('data/table_2.json') and path.isfile('data/table_2.json'):
-        with open('data/table_1.json') as f:
-            table_1 = json.load(f)
+    if path.isfile('data/table_2.json') and path.isfile('data/corrected_table.json'):
+        with open('data/corrected_table.json') as f:
+            corrected_table = json.load(f)
         with open('data/table_2.json') as f:
             table_2 = json.load(f)
     else:
         table_2 = []
-        table_1 = []
+        corrected_table = []
         with open('data/table_2.json', 'w') as f:
             json.dump(table_2, f)
-        with open('data/table_1.json', 'w') as f:
-            json.dump(table_1, f)
+        with open('data/corrected_table.json', 'w') as f:
+            json.dump(corrected_table, f)
 
-    return jsonify([table_1, table_2])
+    return jsonify([corrected_table, table_2])
 
 
 @app.route('/storeJSON', methods=['POST'])
 def storeJSON():
     data = request.get_json()
-    if data['table_id'] == 1:
-        with open('data/table_1.json', 'w') as f:
-            json.dump(data['table'], f)
-    elif data['table_id'] == 2:
-        with open('data/table_2.json', 'w') as f:
-            json.dump(data['table'], f)
+    with open('data/corrected_table.json', 'w') as f:
+        json.dump(data['table']['corrected'], f)
+
+    with open('data/table_2.json', 'w') as f:
+        json.dump(data['table']['principal'], f)
     return 'ok'
 
 
@@ -331,7 +330,15 @@ def upload():
 def uploadTable():
     for fname in request.files:
         f = request.files.get(fname)
-        f.save('data/table_2.json')
+        f.save('data/table.json')
+        with open('data/table.json') as f:
+            table = json.load(f)
+        with open('data/corrected_table.json', 'w') as f:
+            json.dump(table['corrected'], f)
+
+        with open('data/table_2.json', 'w') as f:
+            json.dump(table['principal'], f)
+
     return 'Okay!'
 
 
@@ -341,6 +348,8 @@ def deleteTable():
     data = request.get_json()
     dataset_type = str(data['table_id'])
     with open('data/table_' + dataset_type + '.json', 'w') as file:
+        json.dump([], file)
+    with open('data/corrected_table.json', 'w') as file:
         json.dump([], file)
     return 'Okay!'
 
@@ -422,9 +431,11 @@ def generateTable():
     #     input_list = json.load(f)
     # input_list = [text + ' =' for text in input_list]
     new_table_json = pred.generateTable(input_list)
-
-    with open('data/table_' + dataset_type + '.json', 'r') as file:
-        actual_table = json.load(file)
+    if path.isfile('data/table_2.json'):
+        with open('data/table_' + dataset_type + '.json', 'r') as file:
+            actual_table = json.load(file)
+    else:
+        actual_table = []
 
     curr_id = len(actual_table)
     for i, elem in enumerate(new_table_json):
@@ -732,10 +743,33 @@ def AttentionParse(
 @app.route('/saveAndTrain', methods=['POST'])
 def saveAndTrain():
     data = request.get_json()
+    input_text = data['input_text']
+    output_texts = data['output_text']
+    gsm = data['gsm']
+
+    if path.isfile('data/new_dataset.json'):
+        with open('data/new_dataset.json') as f:
+            new_dataset = json.load(f)
+    else:
+        new_dataset = []
+    new_dataset.append(
+        dict(
+            GSM=gsm,
+            input=input_text,
+            output=(
+                output_texts['2'].replace(
+                    '<EOS>', '<SEPO>'
+                ) + output_texts['1']
+            )
+        )
+    )
+
+    with open('data/new_dataset.json', 'w') as file:
+        json.dump(new_dataset, file)
+
     for index in [1, 2]:
         pred.model_id = index
-        input_text = data['input_text']
-        output_text = data['output_text'][str(index)]
+        output_text = output_texts[str(index)]
         pred.onlineLearning(input_text, output_text)
     return 'okay'
 

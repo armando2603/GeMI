@@ -45,8 +45,8 @@ class Predictor:
         self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'gpt2'
-        config = GPT2Config()
-        self.model = GPT2LMHeadModel(config)
+        self.config = GPT2Config()
+        self.model = GPT2LMHeadModel(self.config)
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.tokenizer.add_special_tokens({
             'pad_token': '<PAD>',
@@ -55,72 +55,76 @@ class Predictor:
             'sep_token': '<SEP>',
             'additional_special_tokens': ['<SEPO>']
         })
-
+        self.base_model = GPT2LMHeadModel(self.config)
+        self.base_model.resize_token_embeddings(len(self.tokenizer))
+        self.base_model.eval()
         # self.model_1.resize_token_embeddings(len(self.tokenizer))
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
-        self.model.resize_token_embeddings(len(self.tokenizer))
 
+        self.model.resize_token_embeddings(len(self.tokenizer))
         self.name_model_2 = 'checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
         self.name_model_1 = 'checkpoint_1-epoch=13-val_loss=0.063.ckpt'
 
-        checkpoint = torch.load('Models' + self.name_model_2)
-        if 'state_dict' in checkpoint.keys():
-            state_dict = checkpoint['state_dict']
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                if k[:6] == 'model.':
-                    name = k[6:]
-                else:
-                    name = k
-                new_state_dict[name] = v
-            self.model.load_state_dict(new_state_dict)
-            torch.save(self.model.state_dict(), 'Models' + self.name_model_2)
+        # checkpoint = torch.load('Models/' + self.name_model_2)
+        # if 'state_dict' in checkpoint.keys():
+        #     state_dict = checkpoint['state_dict']
+        #     new_state_dict = OrderedDict()
+        #     for k, v in state_dict.items():
+        #         if k[:6] == 'model.':
+        #             name = k[6:]
+        #         else:
+        #             name = k
+        #         new_state_dict[name] = v
+        #     self.model.load_state_dict(new_state_dict)
+        #     torch.save(self.model.state_dict(), 'Models/' + self.name_model_2)
 
-        checkpoint = torch.load('Models' + self.name_model_1)
-        if 'state_dict' in checkpoint.keys():
-            state_dict = checkpoint['state_dict']
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                if k[:6] == 'model.':
-                    name = k[6:]
-                else:
-                    name = k
-                new_state_dict[name] = v
-            self.model.load_state_dict(new_state_dict)
-            torch.save(self.model.state_dict(), 'Models' + self.name_model_1)
+        # checkpoint = torch.load('Models/' + self.name_model_1)
+        # if 'state_dict' in checkpoint.keys():
+        #     state_dict = checkpoint['state_dict']
+        #     new_state_dict = OrderedDict()
+        #     for k, v in state_dict.items():
+        #         if k[:6] == 'model.':
+        #             name = k[6:]
+        #         else:
+        #             name = k
+        #         new_state_dict[name] = v
+        #     self.model.load_state_dict(new_state_dict)
+        #     torch.save(self.model.state_dict(), 'Models/' + self.name_model_1)
 
         # self.model.load_state_dict(
-        #     torch.load('Models' + self.name_model_2)
+        #     torch.load('Models/' + self.name_model_2)
         # )
         # model 2
         # self.model.load_state_dict(
         #     torch.load('Models/checkpoint_2_nomask_new-epoch=32-val_loss=0.212.ckpt')
         # )
 
-        self.model.eval()
-        self.model.to(self.device)
+        # self.model.eval()
+        # self.model.to(self.device)
 
         # self.model_1.eval()
         # self.model_1.to(self.device)
         # self.model_2.eval()
 
         # self.model_2.to(self.device)
+
     def predict(self, list_input_text):
+        self.model = self.base_model.to(self.device)
         if self.model_id == 2:
-            if path.isfile('Models' + 'augmented' + self.name_model_2):
-                augmented = 'augmented'
+            if path.isfile('Models/' + 'augmented_' + self.name_model_2):
+                augmented = 'augmented_'
             else:
                 augmented = ''
             self.model.load_state_dict(
-                torch.load('Models' + augmented + self.name_model_2)
+                torch.load('Models/' + augmented + self.name_model_2)
             )
         if self.model_id == 1:
-            if path.isfile('Models' + 'augmented' + self.name_model_1):
-                augmented = 'augmented'
+            if path.isfile('Models/' + 'augmented_' + self.name_model_1):
+                augmented = 'augmented_'
             else:
                 augmented = ''
             self.model.load_state_dict(
-                torch.load('Models' + augmented + self.name_model_1)
+                torch.load('Models/' + augmented + self.name_model_1)
             )
         list_idx = []
         for i, input_text in enumerate(list_input_text):
@@ -295,6 +299,11 @@ class Predictor:
 
         results_array = np.array(results)
         self.generated_sequence_ids = generated_sequence
+        # self.model = self.model.to('cpu')
+        # self.model = self.base_model
+        if self.model_id == 1:
+            del self.model
+            torch.cuda.empty_cache()
         return results_array
 
     def _get_embeddings(self, input_ids):
@@ -316,6 +325,7 @@ class Predictor:
         return inputs_embeds, token_ids_tensor_one_hot
 
     def generateTable(self, list_input_dict):
+        self.model = self.base_model.to(self.device)
         table_json = []
         model_ids = [2, 1]
         fields_2 = self.fields
@@ -324,21 +334,22 @@ class Predictor:
                 prediction_list = []
                 fields_dict = dict()
                 for model_id in model_ids:
-                    if self.model_id == 2:
-                        if path.isfile('Models' + 'augmented' + self.name_model_2):
-                            augmented = 'augmented'
+                    if model_id == 2:
+                        if path.isfile('Models/' + 'augmented_' + self.name_model_2):
+                            augmented = 'augmented_'
                         else:
                             augmented = ''
                         self.model.load_state_dict(
-                            torch.load('Models' + augmented + self.name_model_2)
+                            torch.load('Models/' + augmented + self.name_model_2)
                         )
-                    if self.model_id == 1:
-                        if path.isfile('Models' + 'augmented' + self.name_model_1):
-                            augmented = 'augmented'
+                        self.fields = fields_2
+                    if model_id == 1:
+                        if path.isfile('Models/' + 'augmented_' + self.name_model_1):
+                            augmented = 'augmented_'
                         else:
                             augmented = ''
                         self.model.load_state_dict(
-                            torch.load('Models' + augmented + self.name_model_1)
+                            torch.load('Models/' + augmented + self.name_model_1)
                         )
                         self.fields = ['Cell Line', 'Tissue Type']
                     # print(input_dict['input_text'])
@@ -430,6 +441,8 @@ class Predictor:
                         fields=fields_dict
                     )
                 )
+            del self.model
+            torch.cuda.empty_cache()
             return table_json
 
     def extract_values(self, text_ids, distributions):
@@ -513,13 +526,22 @@ class Predictor:
         return values, confidences
 
     def onlineLearning(self, input_text, output_text):
+        self.model = self.base_model.to(self.device)
         if self.model_id == 2:
+            if path.isfile('Models/' + 'augmented_' + self.name_model_2):
+                augmented = 'augmented_'
+            else:
+                augmented = ''
             self.model.load_state_dict(
-                torch.load('Models' + self.name_model_2)
+                torch.load('Models/' + augmented + self.name_model_2)
             )
         if self.model_id == 1:
+            if path.isfile('Models/' + 'augmented_' + self.name_model_1):
+                augmented = 'augmented_'
+            else:
+                augmented = ''
             self.model.load_state_dict(
-                torch.load('Models' + self.name_model_1)
+                torch.load('Models/' + augmented + self.name_model_1)
             )
         input_ids = self.tokenizer.encode(
             input_text,
@@ -527,11 +549,11 @@ class Predictor:
             truncation=True,
             max_length=self.MAX_LEN
         ).to(self.device)
+        print(output_text)
         output_ids = self.tokenizer.encode(
             output_text,
             return_tensors='pt'
         ).to(self.device)
-
         inp_out_ids = torch.cat(
             (
                 torch.tensor([[self.tokenizer.bos_token_id]], device=self.device),
@@ -556,7 +578,7 @@ class Predictor:
             epoch += 1
             self.model.train()
             optimizer.zero_grad()
-            output = self.model(inp_out_ids, labels=labels)
+            output = self.model(inp_out_ids, labels=labels, return_dict=True)
             loss = output.loss
             print(loss)
             loss.backward()
@@ -609,6 +631,8 @@ class Predictor:
                 self.model.state_dict(),
                 'Models/augmented_checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
             )
+            del self.model
+            torch.cuda.empty_cache()
         if self.model_id == 1:
             torch.save(
                 self.model.state_dict(),
@@ -616,9 +640,9 @@ class Predictor:
             )
         # torch.save(
         #     self.model.state_dict(),
-        #     'Models' + self.name_model_2
+        #     'Models/' + self.name_model_2
         # )
         # self.model.load_state_dict(
-        #     torch.load('Models' + self.name_model_2)
+        #     torch.load('Models/' + self.name_model_2)
         # )
         # self.model.eval()

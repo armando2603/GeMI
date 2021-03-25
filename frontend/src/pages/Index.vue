@@ -61,7 +61,7 @@
                 />
                 <q-dialog v-model="uploadSamples" persistent transition-show="scale" transition-hide="scale">
                   <q-card style="max-width: 95%; max-height: 100%" class="text-primary">
-                    <q-card-section class='row items-center'>
+                    <q-card-section class='row'>
                       <div class="text-h6">Load Samples</div>
                       <q-space />
                       <q-btn icon="close" @click="disableLoadSamples=true; show_error=false" flat round dense v-close-popup />
@@ -97,8 +97,11 @@
                       </div>
                     </div> -->
                     <q-card-section>
+                      <div class="q-mb-md q-pb-sm q-mt-sm row justify-evenly text-grey-8">
+                        {{'Provide a comma separate list of GSEs/GSMs uploading a file or using the form below'}}
+                      </div>
                       <div class="row justify-center">
-                      <q-file style="width:300px" accept='.text, .txt' filled bottom-slots v-model="fileGEO" label="Upload a text file" @input='loadText()'  counter>
+                      <q-file style="width:240px" accept='.text, .txt' filled bottom-slots v-model="fileGEO" label="Upload a text file" @input='loadText()'  counter>
                         <template v-slot:prepend>
                           <q-icon name="cloud_upload" />
                         </template>
@@ -111,7 +114,7 @@
                       </q-file>
                       </div>
                       <div class="q-mr-md q-mt-md text-grey-8">
-                        {{'Insert a list of ' + 'GSES or GSMS' + ' :'}}
+                        {{'List of ' + 'GSEs or GSMs' + ' :'}}
                       </div>
                       <div style="width: 95%">
                         <q-input outlined type='textarea' style="width:100%; max-height: 100px" v-model="GEO_list_text" stack-label placeholder="e.g GSE84422, GSM2233519..."/>
@@ -222,8 +225,16 @@
                 />
               </div>
               <q-space />
+              <q-btn
+                rounded
+                color="green-4"
+                label="Save All"
+                no-caps
+                v-if='getSampleWithMaxWarns().id !== null && getSampleWithMaxWarns().max === 0'
+                @click="moveAll()"
+              />
               <q-toggle
-                label="Fixed GSMs"
+                label="Saved Samples"
                 color="green-3"
                 false-value="principal"
                 true-value="corrected"
@@ -255,9 +266,9 @@
         <q-card class="my-inputs">
           <q-card-section>
             <div class='justify-evenly row'>
-              <div class="text-h6 text-primary q-pb-sm q-pl-md">Selected Input Data</div>
+              <div class="text-h6 text-primary">Selected Input Data</div>
             </div>
-            <div class='justify-evenly row' style='height: 8px'>
+            <!-- <div class='justify-evenly row' style='height: 8px'>
             <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='blue-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
@@ -270,7 +281,7 @@
                 </div>
               </template>
             </q-field>
-            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='orange-4' stack-label>
+            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='red-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
                   {{count_warns(table_json[tableType][id])}}
@@ -278,7 +289,7 @@
               </template>
               <template v-slot:label>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
-                  Warns
+                  Critics
                 </div>
               </template>
             </q-field>
@@ -294,7 +305,7 @@
                 </div>
               </template>
             </q-field>
-          </div>
+          </div> -->
           </q-card-section>
           <q-card-section>
             <div class='q-pl-sm q-pr-sm' v-for="input in inputs" :key="input" >
@@ -311,9 +322,9 @@
           </q-card-section>
         </q-card>
       </div>
-      <div class='q-pt-xl q-pl-sm q-pr-sm'>
+      <!-- <div class='q-pt-xl q-pl-sm q-pr-sm'>
         <q-btn :disable="disableGpt2button" round color="primary" :loading='loadGpt2' icon="send" @click='callModel'/>
-      </div>
+      </div> -->
       <div>
         <!-- <div class="q-pa-md justify-evenly row"> -->
           <!-- <q-btn-toggle
@@ -347,8 +358,7 @@
           <q-card style='min-width: 400px'>
             <q-card-section>
               <div class="justify-evenly row">
-                <div class="text-h6 text-primary">Extracted Values</div>
-                <q-btn color="primary" round icon='save' @click='checkWarns(); confirmSaveAndTrain=true' />
+                <div class="text-h6 text-primary">Extracted Fields</div>
               </div>
               <div>
                 <q-dialog v-model="confirmSaveAndTrain" persistent>
@@ -362,38 +372,48 @@
                       <q-spinner color="primary" size="3em" />
                     </q-card-section>
                     <q-card-section class="row justify-evenly">
-                      <span v-if='!loadingRegenerating && !loadingRetraining && !missingEdit' class="q-ml-sm">You want to submit your corrections??</span>
+                      <span v-if='!loadingRegenerating && !loadingRetraining && !missingEdit && !zeroWarns' class="q-ml-sm">You want to submit your corrections??</span>
                       <span v-if='loadingRegenerating' class="q-ml-sm">Updating the table...</span>
                       <span v-if='loadingRetraining' class="q-ml-sm">Training the model...</span>
                       <span v-if='missingEdit' class="q-ml-sm">Please edit or confirm all red and yellow values</span>
+                      <span v-if='zeroWarns' class="q-ml-sm" style='text-align: center'>There are no more critical samples, now you can inspect the remaining samples and save all the remaining samples  with the 'Save All' button. Once all samples are saved you can download them with the 'Export' button  </span>
                     </q-card-section>
 
                     <q-card-actions v-if='!loadingRegenerating && !loadingRetraining' class="row justify-evenly">
-                      <q-btn class="q-pb-sm" flat :label="missingEdit ? 'Back' : 'No'" color="primary" @click='missingEdit=false;confirmSaveAndTrain=false'/>
-                      <q-btn class="q-pb-sm" v-if='!missingEdit' flat label="Yes" @click='saveAndTrain()' color="primary"/>
+                      <q-btn class="q-pb-sm" flat :label="(missingEdit || zeroWarns) ? 'Back' : 'No'" color="primary" @click='missingEdit=false;confirmSaveAndTrain=false; zeroWarns=false'/>
+                      <q-btn class="q-pb-sm" v-if='!missingEdit && !zeroWarns' flat label="Yes" @click='saveAndTrain()' color="primary"/>
                     </q-card-actions>
                   </q-card>
                 </q-dialog>
               </div>
-              <div class='my-outputs row'>
-                <div class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index); editcard=true">
+              <div v-if='loadGpt2' class='row q-mt-md q-mb-md justify-evenly'>
+                <q-spinner color="primary" size="4em" />
+              </div>
+              <div v-if='!loadGpt2' class='my-outputs row'>
+                <div ref='outputField' class='' v-for="(output, index) in outputs" :key="output" @click="visualize(index); editcard=true">
                   <div class='q-pa-sm' v-if="!((output.value === ' None' || output.value ===' unknown' || output.value === '<missing>') && hideNone)">
                   <q-field
-                  class="output-field"
+                  :class="index===last_index?'output-field q-field--focused':'output-field'"
                   label-color="grey-10"
-                  color='indigo-10'
+                  color='indigo-8'
                   :disable="!gpt2Computed"
                   stack-label
                   outlined
                   dense
                   :bg-color='correctionTable ? (correctionTable[index].fixed ? "info" : getOutputColor(output.confidence)) : getOutputColor(output.confidence)'
-                  :label="output.field + ' [' + (correctionTable? correctionTable[index].confidence: output.confidence) + ']'" >
+                  :label="output.field + ' [' + (correctionTable? correctionTable[index].confidence: output.confidence) * 100 + '%]'" >
                     <template v-slot:control>
-                      <div class="self-center full-width no-outline q-pb-sm q-pt-sm text-h13" tabindex="0">
+                      <div class="self-center full-width no-outline q-pb-sm q-pt-md text-h13" tabindex="0">
                         {{correctionTable? (correctionTable[index].fixed ? correctionTable[index].value : output.value): output.value}}
                       </div>
                     </template>
-
+                    <!-- <template class='' v-slot:label>
+                      <div class="q-pt-sm row items-start" style='white-space: normal'>
+                        <span>
+                          {{output.field + ' [' + (correctionTable? correctionTable[index].confidence: output.confidence) * 100 + '%]'}}
+                        </span>
+                      </div>
+                    </template> -->
                   </q-field>
                   </div>
                 </div>
@@ -411,76 +431,87 @@
                   </q-card>
                 </q-dialog>
               </div>
+              <div class="row justify-center">
+                <q-btn class='q-mt-sm' color="primary" :disabled='!gpt2Computed' rounded icon='done' v-if='tableType==="principal" && !loadGpt2' @click='checkWarns(); confirmSaveAndTrain=true' />
+              </div>
             </q-card-section>
           </q-card>
         </div>
       </div>
-      <div class="q-pt-md" v-if='editcard && gpt2Computed'>
-        <q-card>
+      <!-- <div class="q-pt-md" v-if='editcard && gpt2Computed'> -->
+      <div class="q-pt-md">
+        <q-card style="min-width: 320px;min-height: 150px">
           <q-card-section>
-            <div class="text-h6 text-primary row justify-center">Fix Output</div>
-            <div class='q-pt-md'>
-              <!-- <q-select
-                outlined
-                bg-color='grey-3'
-                v-model="edit_label"
-                :options="output_fields[this.datasetType]"
-                label='Select field'/> -->
-              <q-field borderless label="Selected Field:" label-color='primary' stack-label>
-                <template v-slot:control>
-                  <div class="self-center full-width no-outline" tabindex="0">
-                    {{ output_fields_all[last_index] }}
-                  </div>
-                </template>
-              </q-field>
-              <q-field borderless style='width: 300px' label="Field Description:" label-color='primary' stack-label>
-                <template v-slot:control>
-                  <div class="self-center full-width no-outline" tabindex="0">
-                    {{ descriptions[last_index] }}
-                  </div>
-                </template>
-              </q-field>
-              <q-field style='width: 300px' borderless label="Original predicted value:" label-color='primary' stack-label>
-                <template v-slot:control>
-                  <div class="self-center full-width no-outline" tabindex="0">
-                    {{ outputs[last_index].value }}
-                  </div>
-                </template>
-              </q-field>
-              <q-field borderless label="Confidence of the predicted value:" label-color='primary' stack-label>
-                <template v-slot:control>
-                  <div class="self-center full-width no-outline" tabindex="0">
-                    {{ outputs[last_index].confidence }}
-                  </div>
-                </template>
-              </q-field>
-              <q-field borderless style='width: 300px' label="Last edited value:" label-color='primary' stack-label>
-                <template v-slot:control>
-                  <div class="self-center full-width no-outline" tabindex="0">
-                    {{ correctionTable ? (correctionTable[last_index].fixed ? correctionTable[last_index].value : 'Not edited') : 'Not edited' }}
-                  </div>
-                </template>
-              </q-field>
+            <div class="text-h6 text-primary row justify-center">Edit Form</div>
+            <div class='' v-if='!loadGpt2 && gpt2Computed'>
+              <div class='q-pt-md'>
+                <!-- <q-select
+                  outlined
+                  bg-color='grey-3'
+                  v-model="edit_label"
+                  :options="output_fields[this.datasetType]"
+                  label='Select field'/> -->
+                <q-field borderless label="Selected Field:" label-color='primary' stack-label>
+                  <template v-slot:control>
+                    <div class="self-center full-width no-outline" tabindex="0">
+                      {{ last_index === 'no_index' ? 'Select a field' : output_fields_all[last_index] }}
+                    </div>
+                  </template>
+                </q-field>
+                <q-field borderless style='width: 300px' label="Field Description:" label-color='primary' stack-label>
+                  <template v-slot:control>
+                    <div class="self-center full-width no-outline" tabindex="0">
+                      {{ last_index === 'no_index' ? 'Select a field' : descriptions[last_index] }}
+                    </div>
+                  </template>
+                </q-field>
+                <q-field style='width: 300px' borderless label="Original predicted value:" label-color='primary' stack-label>
+                  <template v-slot:control>
+                    <div class="self-center full-width no-outline" tabindex="0">
+                      {{ last_index === 'no_index' ? 'Select a field' : outputs[last_index].value }}
+                    </div>
+                  </template>
+                </q-field>
+                <q-field borderless label="Confidence of the predicted value:" label-color='primary' stack-label>
+                  <template v-slot:control>
+                    <div class="self-center full-width no-outline" tabindex="0">
+                      {{ last_index === 'no_index' ? 'Select a field' : outputs[last_index].confidence *100 + '%' }}
+                    </div>
+                  </template>
+                </q-field>
+                <q-field borderless style='width: 300px' label="Edited value:" label-color='primary' stack-label>
+                  <template v-slot:control>
+                    <div class="self-center full-width no-outline" tabindex="0">
+                      {{ last_index === 'no_index' ? 'Select a field' : (correctionTable ? (correctionTable[last_index].fixed ? correctionTable[last_index].value : 'Not edited') : 'Not edited') }}
+                    </div>
+                  </template>
+                </q-field>
+              </div>
+              <div class="text-primary row justify-evenly q-pr-sm">
+                  Choose:
+                </div>
+              <div class='row justify-evenly'>
+                <div class="column">
+                <q-radio v-model="editType" val="confirm" label="Confirm value" />
+                <q-radio v-model="editType" val="unknown" label="Set as unknown" />
+                <q-radio v-model="editType" val="new" label="Insert new value" />
+              </div>
+              </div>
+              <div v-if="editType==='new'" class='q-pt-md'>
+                <q-input
+                  outlined bg-color='grey-3'
+                  v-model="edit_text"
+                  dense
+                  placeholder='insert new value' />
+              </div>
+              <div class='q-pt-md justify-evenly row'>
+                <q-btn rounded size='md' color='primary' label='Edit' @click='edit()'/>
+                <!-- <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/> -->
+                <!-- <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/> -->
+              </div>
             </div>
-            <div class="text-primary q-pr-sm">
-              Choose:
-            </div>
-            <div class="column">
-              <q-radio v-model="editType" val="confirm" label="Confirm value" />
-              <q-radio v-model="editType" val="unknown" label="Set as unknown" />
-              <q-radio v-model="editType" val="new" label="Insert new value" />
-            </div>
-            <div v-if="editType==='new'" class='q-pt-md'>
-              <q-input
-                outlined bg-color='grey-3'
-                v-model="edit_text"
-                dense
-                placeholder='insert new value' />
-            </div>
-            <div class='q-pt-md justify-evenly row'>
-              <q-btn rounded size='md' color='primary' label='Edit' @click='edit()'/>
-              <!-- <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/> -->
-              <!-- <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/> -->
+            <div v-if='loadGpt2' class='row q-mt-md q-mb-md justify-evenly'>
+              <q-spinner color="primary" size="4em" />
             </div>
           </q-card-section>
         </q-card>
@@ -572,11 +603,11 @@
   min-width: 20%
   max-width: 65%
 .output-field
-  width: 125px
+  width: 133px
   height: auto
 .my-outputs
   min-height: 150px
-  max-width: 430px
+  max-width: 450px
   max-height: 600px
 .toggle
   min-width: 70px
@@ -599,6 +630,7 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      zeroWarns: false,
       fileGEO: null,
       searchType: 'input',
       tableType: 'principal',
@@ -752,8 +784,8 @@ export default {
         },
         { name: 'GSM', label: 'GSM', align: 'center', field: row => row.GSM, format: val => `${val}`, sortable: true },
         { name: 'GSE', label: 'GSE', align: 'center', field: row => row.GSE, format: val => `${val}`, sortable: true },
-        { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
-        { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
+        { name: 'warnings', label: 'Criticals', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
+        // { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
         { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
         { name: 'Investigated as', align: 'left', label: 'Investigated as', field: row => row.fields['Investigated as'].value, sortable: false },
         { name: 'Assay name', align: 'left', label: 'Assay name', field: row => row.fields['Assay name'].value, sortable: false },
@@ -862,6 +894,14 @@ export default {
           this.gpt2Computed = true
           this.loadGpt2 = false
           this.disableGpt2button = true
+          let selectedIndex = 0
+          for (const newIndex in this.correctionTable) {
+            if (this.correctionTable[newIndex].confidence <= this.greenThreshold) {
+              selectedIndex = newIndex
+              break
+            }
+          }
+          this.visualize(selectedIndex)
           // this.$axios.post(this.backendIP + '/ComputeAttention', {
           //   inputs: this.inputs_api,
           //   output_fields: this.output_fields[this.datasetType],
@@ -907,8 +947,14 @@ export default {
       this.isValid = true
       this.disableGpt2button = false
       this.last_index = 'no_index'
+      this.callModel()
     },
     visualize (index) {
+      if (this.last_index !== index) {
+        this.$nextTick(() => {
+          this.$refs.outputField[index].click()
+        })
+      }
       this.edit_text = ''
       if (this.gpt2Computed) {
         if (this.typeInterpreter === 'lime') {
@@ -989,6 +1035,11 @@ export default {
       this.selected = [{ id: null }]
       this.isValid = true
       this.tableType = 'principal'
+      const maxStatus = this.getSampleWithMaxWarns()
+      if (maxStatus.id !== null) {
+        this.selected = [{ id: maxStatus.id }]
+        this.searchData()
+      }
     },
     // visualizeNewAggregation () {
     //   if (this.last_index !== 'no_index') {
@@ -1030,7 +1081,7 @@ export default {
     count_warns (row) {
       var nWarn = 0
       for (var field of this.output_fields[this.datasetType]) {
-        if (row.fields[field].confidence <= this.redThreshold) {
+        if (row.fields[field].confidence < this.redThreshold) {
           nWarn += 1
         }
       }
@@ -1048,7 +1099,7 @@ export default {
     store_json () {
       this.$axios.post(
         this.backendIP + '/storeJSON',
-        { table: this.table_json[this.tableType], table_id: this.datasetType }
+        { table: this.table_json, table_id: this.datasetType }
       ).catch(error => (error.message))
     },
     changeOutput () {
@@ -1070,10 +1121,9 @@ export default {
     exportTable () {
       const status = exportFile(
         'table-export.json',
-        JSON.stringify(this.table_json[this.tableType]),
+        JSON.stringify(this.table_json),
         'text/json'
       )
-
       if (status !== true) {
         this.$q.notify({
           message: 'Browser denied file download...',
@@ -1090,11 +1140,12 @@ export default {
       ).then(response => {
         this.$axios.get(this.backendIP + '/getJSONs')
           .then((response) => {
-            // this.dataset_json[1] = response.data[0]
-            this.table_json[this.tableType] = response.data[1]
+            this.table_json.corrected = response.data[0]
+            this.table_json.principal = response.data[1]
             this.loadingSamples = false
             this.uploadSamples = false
             this.show_error = false
+            this.resetPage()
           }).catch(error => (error.message))
       }).catch(error => {
         this.loadingSamples = false
@@ -1113,31 +1164,31 @@ export default {
       reader.readAsText(this.fileGEO)
     },
     searchSamples () {
-      // if (this.GEO_list_text.trim() === '') {
-      //   this.GSMS_data = []
-      //   return
-      // }
-      // this.show_error = false
-      // this.searchingSamples = true
-      // const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
-      // console.log(searchList)
-      // this.$axios.post(
-      //   this.backendIP + '/searchGEO',
-      //   { searchList: searchList }
-      // ).then(response => {
-      //   this.GSMS_data = response.data
-      //   this.searchingSamples = false
-      // }).catch(error => {
-      //   console.log(error.message)
-      //   this.searchingSamples = false
-      //   this.show_error = true
-      //   this.error_text = 'Something went wrong, please control the input'
-      // })
+      if (this.GEO_list_text.trim() === '') {
+        this.GSMS_data = []
+        return
+      }
+      this.show_error = false
+      this.searchingSamples = true
+      const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
+      console.log(searchList)
+      this.$axios.post(
+        this.backendIP + '/searchGEO',
+        { searchList: searchList }
+      ).then(response => {
+        this.GSMS_data = response.data
+        this.searchingSamples = false
+      }).catch(error => {
+        console.log(error.message)
+        this.searchingSamples = false
+        this.show_error = true
+        this.error_text = 'Something went wrong, please control the input'
+      })
     },
     deleteTable () {
       this.$axios.post(
         this.backendIP + '/deleteTable',
-        { table_id: this.datasetType }
+        { table_id: 2 }
       ).catch(error => {
         console.log(error.message)
       })
@@ -1169,7 +1220,6 @@ export default {
       }
       for (const newIndex in this.correctionTable) {
         if (this.correctionTable[newIndex].confidence <= this.greenThreshold) {
-          this.last_index = newIndex
           this.visualize(newIndex)
           break
         }
@@ -1178,8 +1228,8 @@ export default {
     getJSON () {
       this.$axios.get(this.backendIP + '/getJSONs')
         .then((response) => {
-          this.dataset_json[1] = response.data[0]
-          this.table_json[this.tableType] = response.data[1]
+          this.table_json.corrected = response.data[0]
+          this.table_json.principal = response.data[1]
         }).catch(error => (error.message))
     },
     getColorCell (row, col) {
@@ -1216,13 +1266,13 @@ export default {
           outputText[tableType] += '<SEPO>'
         }
       }
-      // console.log(this.output_fields[2].slice(-1))
       console.log(outputText)
       this.$axios.post(
         this.backendIP + '/saveAndTrain',
         {
           input_text: this.table_json[this.tableType][this.id].input,
-          output_text: outputText
+          output_text: outputText,
+          gsm: this.table_json[this.tableType][this.selected[0].id].GSM
         }
       ).then((response) => {
         const inputList = []
@@ -1275,8 +1325,13 @@ export default {
           this.table_json[this.tableType] = filteredTable
           console.log('dovrebbe aver salvato')
           this.store_json()
-          this.confirmSaveAndTrain = false
           this.resetPage()
+          const maxStatus = this.getSampleWithMaxWarns()
+          if (maxStatus.max === 0) {
+            this.zeroWarns = true
+          } else {
+            this.confirmSaveAndTrain = false
+          }
         }).catch(error => {
           console.log(error.message)
           this.confirmSaveAndTrain = false
@@ -1297,14 +1352,33 @@ export default {
       for (const index in this.correctionTable) {
         if (this.correctionTable[index].confidence <= this.greenThreshold) this.missingEdit = true
       }
+    },
+    getSampleWithMaxWarns () {
+      let max = -1
+      let maxId = null
+      for (const [index, row] of this.table_json.principal.entries()) {
+        if (this.count_warns(row) > max) {
+          max = this.count_warns(row)
+          maxId = index
+        }
+      }
+      return { id: maxId, max: max }
+    },
+    moveAll () {
+      for (const row of this.table_json.principal) {
+        this.table_json.corrected.push(row)
+      }
+      this.table_json.principal = []
+      this.store_json()
+      this.resetPage()
     }
   },
   created () {
     this.columns = this.columns2
     this.$axios.get(this.backendIP + '/getJSONs')
       .then((response) => {
-        this.dataset_json[1] = response.data[0]
-        this.table_json[this.tableType] = response.data[1]
+        this.table_json.corrected = response.data[0]
+        this.table_json.principal = response.data[1]
         this.resetPage()
       }).catch(error => (error.message))
   }
