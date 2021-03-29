@@ -18,30 +18,18 @@ pred = Predictor()
 
 
 def gradientParser(
-    output_indexes,
     data,
-    output_ids,
+    output_ids_list,
     output_fields,
     confidences,
-    input_ids
+    input_ids,
+    grad_explains
 ):
     output_split = []
-    for i in range(len(output_indexes)):
-        if output_indexes[i] == -1:
-            output_split.append([output_fields[i], '<missing>'])
-        else:
-            if i < len(output_indexes) - 1:
-                value = pred.tokenizer.decode(output_ids[
-                    output_indexes[i]:output_indexes[i+1]-len(
-                        pred.tokenizer.encode(output_fields[i+1])
-                    )-2
-                ])
-                output_split.append([output_fields[i], value])
-            else:
-                value = pred.tokenizer.decode(output_ids[output_indexes[i]:-1])
-                output_split.append([output_fields[i], value])
+    for i, field in enumerate(output_fields):
+        value = pred.tokenizer.decode(output_ids_list[i][:-1])
+        output_split.append([field, value])
 
-    # colors = ['red-3'] * 15 + ['orange-3'] * 8 + ['green-3'] * 3
     def get_color(i):
         if confidences[i] > 0.85:
             color = ['green-3']
@@ -59,7 +47,6 @@ def gradientParser(
         confidence=np.round(np.float64(confidences[i]), 2)
         ) for i, elem in enumerate(output_split)]
     # gradient saliency
-    gradient_score = pred.grad_explain
 
     input_tokens = pred.tokenizer.convert_ids_to_tokens(input_ids)
     input_tokens = list(
@@ -69,17 +56,8 @@ def gradientParser(
         )
     )
     gradient_inputs = []
-    for j in range(len(output_indexes)):
-        if j < len(output_indexes) - 1:
-            scores = gradient_score[
-                output_indexes[j]: output_indexes[j+1]
-                - len(pred.tokenizer.encode(output_fields[j+1]))
-                - 2, :
-            ]
-        else:
-            scores = gradient_score[
-                output_indexes[j]:-1, :
-            ]
+    for grad_explain in grad_explains:
+        scores = grad_explain[:-1, :]
         scores = np.mean(scores, axis=0)
 
         scores = scores[1:len(input_tokens)+1]
@@ -87,11 +65,10 @@ def gradientParser(
         max_scores = 1 if max_scores == 0.0 else max_scores
         scores = scores / max_scores
         assert len(input_tokens) == len(scores), (
-            f'Gradient: len input_tokens {len(input_tokens)} != len scores {len(scores)}'
+            f'Gradient: len input_tokens {len(input_tokens)}'
+            + f' != len scores {len(scores)}'
         )
-        # print(len(scores))
-        # print(len(input_tokens))
-        # print(f'Il primo token è {input_tokens[-1]}')
+
         input_list = list(zip(input_tokens, scores))
 
         word_list = []
@@ -125,8 +102,7 @@ def gradientParser(
         gradient_input = word_list
         for i, input_list in enumerate(gradient_input):
             for k, value in enumerate(input_list):
-                opacity = np.int(np.ceil(value[1]*5)) if\
-                    output_indexes[j] != -1 else 0
+                opacity = np.int(np.ceil(value[1]*5))
                 bg_colors = f'bg-blue-{opacity}' if (
                     opacity) > 1 else 'bg-white'
                 gradient_input[i][k][1] = bg_colors
@@ -145,47 +121,25 @@ def CallModel():
     input_text = data['inputs'][0]['values'][0]['text']
     output_fields = data['output_fields']
     pred.fields = output_fields
-    pred.model_id = data['exp_id']
 
-    pred.predict([input_text])
-
-    confidences = pred.confidences
-    output_ids = pred.generated_sequence_ids
-    output_indexes = np.array(pred.indexes)
-    input_ids = np.array(pred.tokenizer.encode(input_text))
-
-    outputs_1, gradient_inputs_1 = gradientParser(
-        output_indexes,
-        data,
-        output_ids,
-        output_fields,
-        confidences,
-        input_ids
+    output_ids_list, confidences, grad_explains = pred.predict(
+        [input_text], output_fields
     )
 
-    output_fields = ['Cell Line', 'Tissue Type']
-    pred.fields = output_fields
-    pred.model_id = 1
+    input_ids = np.array(pred.tokenizer.encode(input_text))
 
-    pred.predict([input_text])
-
-    confidences = pred.confidences
-    output_ids = pred.generated_sequence_ids
-    output_indexes = np.array(pred.indexes)
-
-    outputs_2, gradient_inputs_2 = gradientParser(
-        output_indexes,
+    outputs, gradient_inputs = gradientParser(
         data,
-        output_ids,
+        output_ids_list,
         output_fields,
         confidences,
-        input_ids
+        input_ids,
+        grad_explains
     )
 
     response = {
-        'outputs': outputs_1 + outputs_2,
-        # 'output_indexes': output_indexes.tolist(),
-        'gradient': gradient_inputs_1 + gradient_inputs_2
+        'outputs': outputs,
+        'gradient': gradient_inputs
     }
     return jsonify(response)
 
@@ -402,7 +356,6 @@ def generateTable():
         ]
         input_text = ' '.join(input_text_words)
 
-
         # text_list = [
         #     # gsm['organism'],
         #     gsm['characteristics'],
@@ -451,7 +404,7 @@ def searchGEO():
         if 'GSM' in geo:
             gsm = geo
             gsm = gsm.replace('"', '')
-            gsm_data = get_GEO(geo=gsm, destdir='data/GEO')
+            gsm_data = get_GEO(geo=gsm, silent=True, destdir='data/GEO', )
             description = (
                 ' - '.join(gsm_data.metadata['description'])
                 if 'description' in gsm_data.metadata.keys()

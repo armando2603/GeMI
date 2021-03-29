@@ -46,7 +46,7 @@ class Predictor:
         # Load pre-trained model (weights)
         model_name = 'gpt2'
         self.config = GPT2Config()
-        self.model = GPT2LMHeadModel(self.config)
+        # self.model = GPT2LMHeadModel(self.config)
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.tokenizer.add_special_tokens({
             'pad_token': '<PAD>',
@@ -61,10 +61,10 @@ class Predictor:
         # self.model_1.resize_token_embeddings(len(self.tokenizer))
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
 
-        self.model.resize_token_embeddings(len(self.tokenizer))
+        # self.model.resize_token_embeddings(len(self.tokenizer))
+        # self.name_model = 'checkpoint_4-epoch=14-val_loss=0.306.ckpt'
         self.name_model = 'checkpoint_4-epoch=05-val_loss=0.336.ckpt'
-
-        # checkpoint = torch.load('Models/' + self.name_model_2)
+        # checkpoint = torch.load('Models/' + self.name_model)
         # if 'state_dict' in checkpoint.keys():
         #     state_dict = checkpoint['state_dict']
         #     new_state_dict = OrderedDict()
@@ -75,7 +75,7 @@ class Predictor:
         #             name = k
         #         new_state_dict[name] = v
         #     self.model.load_state_dict(new_state_dict)
-        #     torch.save(self.model.state_dict(), 'Models/' + self.name_model_2)
+        #     torch.save(self.model.state_dict(), 'Models/' + self.name_model)
 
         # checkpoint = torch.load('Models/' + self.name_model_1)
         # if 'state_dict' in checkpoint.keys():
@@ -117,185 +117,108 @@ class Predictor:
         self.model.load_state_dict(
             torch.load('Models/' + augmented + self.name_model)
         )
-        list_idx = []
-        for i, input_text in enumerate(list_input_text):
+        # Predict all tokens
+        for input_text in tqdm(list_input_text, position=0, leave=True):
+            # print(input_ids.size())
+            self.confidences = []
+            self.grad_explains = []
+            self.generated_sequences = []
             end_id = self.tokenizer.eos_token_id
-            print(input_text)
-            indexed_tokens = self.tokenizer.encode(
+            prefix_input_ids = self.tokenizer.encode(
                 input_text,
+                return_tensors='pt',
                 truncation=True,
                 max_length=self.MAX_LEN + 3
             )
-            # print(self.tokenizer.decode(indexed_tokens))
-            tokens_tensor = torch.tensor([indexed_tokens])
-            tokens_tensor = tokens_tensor
-            list_idx.append(tokens_tensor)
-        results = []
-        grad_explain = []
-        # Predict all tokens
-        for input_ids in tqdm(list_idx, position=0, leave=True):
-            # print(input_ids.size())
-
-            input_ids = torch.cat(
-                (
-                    torch.tensor([[self.tokenizer.bos_token_id]]),
-                    input_ids,
-                    torch.tensor([[self.tokenizer.sep_token_id]])
-                ),
-                dim=-1
-            ).to(self.device)
-            input_length = input_ids.shape[1]
-            generated_sequence = []
-            distributions = []
-            # colon_id = self.tokenizer.encode(':')[0]
-            # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
-            # attn_mask_value = torch.zeros(1, 0, device=self.device)
-            # is_value = False
-            # attn_mask = torch.ones(input_ids.shape, device=self.device)
-            while(len(generated_sequence) < 300):
-
-                inputs_embeds, token_ids_tensor_one_hot = \
-                    self._get_embeddings(input_ids[0])
-                inputs = inputs_embeds.unsqueeze(0)
-                # outputs = self.model(inputs_embeds=inputs, attention_mask=attn_mask)
-                outputs = self.model(
-                    inputs_embeds=inputs,
-                    output_attentions=True,
-                    return_dict=True
-                )
-                next_token_logits = outputs.logits[:, -1, :]
-                predicted_token_tensor = torch.argmax(next_token_logits)
-                # if predicted_token_tensor == SEPO_id:
-                #     is_value = False
-                #     attn_mask[0, -attn_mask_value.shape[1]:] = attn_mask_value
-                #     attn_mask_value = torch.zeros(1, 0, device=self.device)
-                # attn_mask = torch.cat((attn_mask, torch.ones(1, 1, device=self.device)), dim=-1)
-                # if is_value:
-                #     attn_mask_value = torch.cat((attn_mask_value, torch.zeros(1, 1, device=self.device)), dim=-1)
-                # if predicted_token_tensor == colon_id:
-                #     is_value = True
-                
-                # print(self.tokenizer.decode(generated_sequence))
-            # while(predicted_token != self.tokenizer.pad_token_id
-            #         and predicted_token != end_id
-            #         and len(generated_sequence) < 300):
-
-            #     inputs_embeds, token_ids_tensor_one_hot = \
-            #         self._get_embeddings(input_ids[0])
-            #     inputs = inputs_embeds.unsqueeze(0)
-            #     outputs = self.model(inputs_embeds=inputs)
-
-            #     next_token_logits = outputs.logits[:, -1, :]
-            #     predicted_token_tensor = torch.argmax(next_token_logits)
-
-                distributions.append(
-                    F.softmax(next_token_logits[0], 0).detach()
-                )
-                prediction_logit = outputs.logits[
-                    0,
-                    -1,
-                    predicted_token_tensor
-                ]
-                grad_x_input = gradient_x_inputs_attribution(
-                    prediction_logit,
-                    inputs_embeds
-                )
-                grad_explain.append(
-                    grad_x_input[:input_length].detach()
+            for field in self.fields:
+                grad_explain = []
+                conditional_ids = self.tokenizer.encode(
+                    field + ':',
+                    return_tensors='pt',
+                    truncation=True,
+                    max_length=self.MAX_LEN
                 )
                 input_ids = torch.cat(
-                    (input_ids, predicted_token_tensor.view(1, 1)),
+                    (
+                        torch.tensor([[self.tokenizer.bos_token_id]]),
+                        prefix_input_ids,
+                        torch.tensor([[self.tokenizer.sep_token_id]]),
+                        conditional_ids
+                    ),
                     dim=-1
-                ).detach()
-                generated_sequence.append(predicted_token_tensor.detach())
-                if predicted_token_tensor == end_id:
-                    break
-            self.attentions = [
-                layer[0].detach().cpu().numpy()
-                for layer in outputs.attentions
-            ]
-            grad_explain = [
-                explain.cpu().numpy() for explain in grad_explain
-            ]
-            distributions = [
-                distribution.cpu().numpy() for distribution in distributions
+                ).to(self.device)
+                input_length = prefix_input_ids.shape[1] + 1
+                generated_sequence = []
+                distributions = []
+                # colon_id = self.tokenizer.encode(':')[0]
+                # SEPO_id = self.tokenizer.encode('<SEPO>')[0]
+                # attn_mask_value = torch.zeros(1, 0, device=self.device)
+                # is_value = False
+                # attn_mask = torch.ones(input_ids.shape, device=self.device)
+                while(len(generated_sequence) < 20):
+
+                    inputs_embeds, token_ids_tensor_one_hot = \
+                        self._get_embeddings(input_ids[0])
+                    inputs = inputs_embeds.unsqueeze(0)
+                    outputs = self.model(
+                        inputs_embeds=inputs,
+                        return_dict=True
+                    )
+                    next_token_logits = outputs.logits[:, -1, :]
+                    predicted_token_tensor = torch.argmax(next_token_logits)
+
+                    distributions.append(
+                        F.softmax(next_token_logits[0], 0).detach()
+                    )
+                    prediction_logit = outputs.logits[
+                        0,
+                        -1,
+                        predicted_token_tensor
+                    ]
+                    grad_x_input = gradient_x_inputs_attribution(
+                        prediction_logit,
+                        inputs_embeds
+                    )
+                    grad_explain.append(
+                        grad_x_input[:input_length].detach()
+                    )
+                    input_ids = torch.cat(
+                        (input_ids, predicted_token_tensor.view(1, 1)),
+                        dim=-1
+                    ).detach()
+                    generated_sequence.append(predicted_token_tensor.detach())
+                    if predicted_token_tensor == end_id:
+                        break
+
+                grad_explain = [
+                    explain.cpu().numpy() for explain in grad_explain
                 ]
-            self.grad_explain = np.array(grad_explain)
-            self.attentions = np.array(self.attentions)
-            print(self.tokenizer.decode(generated_sequence))
+                distributions = [
+                    distribution.cpu().numpy() for distribution in distributions
+                    ]
+                self.grad_explains.append(np.array(grad_explain))
+                print(self.tokenizer.decode(generated_sequence))
 
-            self.indexes = []
-            for field in self.fields:
-                field_tokens = np.array(self.tokenizer.encode(field))
-                generated_sequence = np.array(generated_sequence)
-                indexes = np.ones(
-                    len(np.where(
-                        generated_sequence == field_tokens[0])[0])
-                ) * -1
-                for i, token in enumerate(field_tokens):
-                    current_indexes = np.where(
-                        generated_sequence == token)[0]
-                    for n, index in enumerate(indexes):
-                        if i == 0:
-                            indexes = current_indexes
-                        else:
-                            for current_index in current_indexes:
-                                if index + 1 == current_index:
-                                    indexes[n] = current_index
-                                    break
-                                else:
-                                    indexes[n] = -1
+                output_index = 0
 
-                if (len(np.where(indexes != -1)[0]) == 0):
-                    index = -1
-                else:
-                    index = indexes[np.where(indexes != -1)[0][0]] + 2
-                if index >= len(generated_sequence):
-                    index = -1
-                self.indexes.append(index)
-                # print(f'final index is {index}')
-                # print(self.tokenizer.decode([generated_sequence[index-2]]))
-                # print(self.tokenizer.decode([generated_sequence[index]]))
-                # print(index)
-                # print(len(distributions))
-                results.append(distributions[index])
+                # confidence 1st token
+                out_prob = distributions[output_index]
+                self.confidences.append(np.max(out_prob))
 
-            self.confidences = []
-            for j in range(len(self.indexes)):
-                if self.indexes[j] == -1:
-                    self.confidences.append(1)
-                else:
-                    # confidence 1st token
-                    out_prob = distributions[self.indexes[j]]
-                    self.confidences.append(np.max(out_prob))
+                # confidence as mul of confidences
+                #     out_prob = distributions[self.indexes[j]:-1]
+                #     self.confidences.append(np.multiply.reduce(
+                #         np.max(out_prob, 1),
+                #         0
+                #     ))
 
-                    # confidence as mul of confidences
-                    # if j < len(indexes) - 1:
-                    #     out_prob = distributions[
-                    #         self.indexes[j]:self.indexes[j+1]
-                    #         - len(
-                    #             self.tokenizer.encode(self.fields[j+1])
-                    #         ) - 2
-                    #     ]
-                    #     self.confidences.append(np.multiply.reduce(
-                    #         np.max(out_prob, 1),
-                    #         0
-                    #     ))
-                    # else:
-                    #     out_prob = distributions[self.indexes[j]:-1]
-                    #     self.confidences.append(np.multiply.reduce(
-                    #         np.max(out_prob, 1),
-                    #         0
-                    #     ))
-
-        results_array = np.array(results)
-        self.generated_sequence_ids = generated_sequence
+                self.generated_sequences.append(generated_sequence)
         # self.model = self.model.to('cpu')
         # self.model = self.base_model
         if self.model_id == 1:
             del self.model
             torch.cuda.empty_cache()
-        return results_array
+        return self.generated_sequences, self.confidences, self.grad_explains
 
     def _get_embeddings(self, input_ids):
         """
@@ -323,6 +246,12 @@ class Predictor:
             for it, input_dict in enumerate(tqdm(list_input_dict)):
                 prediction_list = []
                 fields_dict = dict()
+                pre_input_ids = self.tokenizer.encode(
+                    input_dict['input_text'].strip(),
+                    return_tensors='pt',
+                    truncation=True,
+                    max_length=self.MAX_LEN
+                )
                 for field in self.fields:
                     if path.isfile('Models/' + 'augmented_' + self.name_model):
                         augmented = 'augmented_'
@@ -332,12 +261,6 @@ class Predictor:
                         torch.load('Models/' + augmented + self.name_model)
                     )
                     # print(input_dict['input_text'])
-                    input_ids = self.tokenizer.encode(
-                        input_dict['input_text'].strip(),
-                        return_tensors='pt',
-                        truncation=True,
-                        max_length=self.MAX_LEN
-                    )
                     conditional_ids = self.tokenizer.encode(
                         field + ':',
                         return_tensors='pt',
@@ -348,7 +271,7 @@ class Predictor:
                     input_ids = torch.cat(
                         (
                             torch.tensor([[self.tokenizer.bos_token_id]]),
-                            input_ids,
+                            pre_input_ids,
                             torch.tensor([[self.tokenizer.sep_token_id]]),
                             conditional_ids
                         ),
@@ -381,7 +304,7 @@ class Predictor:
                         generated_sequence.append(predicted_token_tensor)
                         if predicted_token_tensor == end_id:
                             break
-                    print(self.tokenizer.decode(generated_sequence))
+                    # print(self.tokenizer.decode(generated_sequence))
                     prediction_list.append(generated_sequence)
                     distributions = [
                         distribution.cpu().numpy()

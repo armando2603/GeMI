@@ -1,5 +1,54 @@
 <template>
   <div class='q-pt-sm q-pb-md'>
+    <div class="q-pa-md">
+      <q-dialog v-model='showInstructions' persistent>
+        <q-card style='min-width: 50%; min-height: 50%'>
+          <q-card-section class='row'>
+            <div class="text-h6 text-primary">Quick Start</div>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+          <q-card-section style='height: 100%'>
+            <q-carousel
+              style='height: 100%'
+              v-model="InstructionSlide"
+              transition-prev="slide-right"
+              transition-next="slide-left"
+              animated
+              arrows
+              padding
+              navigation
+              control-color="primary"
+              class="rounded-borders"
+            >
+              <q-carousel-slide style='height: 100%' name="style" >
+                <div class="column no-wrap flex-center">
+                  <iframe src="https://giphy.com/embed/e619oxLUaSsu8OVoF9" width="480" height="480" frameBorder="0" class="giphy-embed" allowFullScreen></iframe><p><a href="https://giphy.com/gifs/portalr7-instagram-tech-e619oxLUaSsu8OVoF9">via GIPHY</a></p>
+                </div>
+              </q-carousel-slide>
+              <q-carousel-slide name="tv" class="column no-wrap flex-center">
+                <q-icon name="live_tv" color="primary" size="56px" />
+                <div class="q-mt-md text-center">
+                  prova
+                </div>
+              </q-carousel-slide>
+              <q-carousel-slide name="layers" class="column no-wrap flex-center">
+                <q-icon name="layers" color="primary" size="56px" />
+                <div class="q-mt-md text-center">
+                  chissà
+                </div>
+              </q-carousel-slide>
+              <q-carousel-slide name="map" class="column no-wrap flex-center">
+                <q-icon name="terrain" color="primary" size="56px" />
+                <div class="q-mt-md text-center">
+                  ahooo
+                </div>
+              </q-carousel-slide>
+            </q-carousel>
+          </q-card-section>
+        </q-card>
+      </q-dialog>
+    </div>
     <div class='q-pt-md justify-evenly column'>
     <div style="width: 100%">
       <template>
@@ -173,7 +222,7 @@
                 <q-btn
                   rounded
                   color="primary"
-                  label="Export json"
+                  label="Export Table"
                   no-caps
                   @click="exportTable"
                 />
@@ -183,7 +232,7 @@
                   rounded
                   no-caps
                   color="primary"
-                  label="Import json"
+                  label="Import Table"
                   @click='importJSON = true'
                 />
               </div>
@@ -630,6 +679,8 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      InstructionSlide: 'style',
+      showInstructions: true,
       zeroWarns: false,
       fileGEO: null,
       searchType: 'input',
@@ -867,7 +918,8 @@ export default {
           'Ethnicity',
           'Health status',
           'Cell Line',
-          'Tissue Type'
+          'Tissue Type',
+          'Classification'
         ]
       }
     }
@@ -927,29 +979,29 @@ export default {
       }
     },
     searchData (newSelected) {
-      // this.limeComputed = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
-      // this.gpt2Computed = false
-      // this.editcard = false
-      // this.id = this.selected[0].id
+      this.limeComputed = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+      this.gpt2Computed = false
+      this.editcard = false
+      this.id = this.selected[0].id
 
-      // for (const x of Array(this.limeResults.length).keys()) {
-      //   this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
-      // }
-      // for (const x of Array(this.inputs.length).keys()) {
-      //   this.inputs[x].values = [{ text: '', color: 'bg-white' }]
-      // }
-      // if (this.datasetType === 1) {
-      //   this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-      //   this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
-      // }
-      // if (this.datasetType === 2) {
-      //   this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-      //   this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
-      // }
-      // this.isValid = true
-      // this.disableGpt2button = false
-      // this.last_index = 'no_index'
-      // this.callModel()
+      for (const x of Array(this.limeResults.length).keys()) {
+        this.limeResults[x][0] = [{ text: '', color: 'bg-grey-3' }]
+      }
+      for (const x of Array(this.inputs.length).keys()) {
+        this.inputs[x].values = [{ text: '', color: 'bg-white' }]
+      }
+      if (this.datasetType === 1) {
+        this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
+        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+      }
+      if (this.datasetType === 2) {
+        this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
+        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+      }
+      this.isValid = true
+      this.disableGpt2button = false
+      this.last_index = 'no_index'
+      this.callModel()
     },
     visualize (index) {
       if (this.last_index !== index) {
