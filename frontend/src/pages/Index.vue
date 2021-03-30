@@ -23,7 +23,7 @@
             >
               <q-carousel-slide style='height: 100%' name="style" >
                 <div class="column no-wrap flex-center">
-                  <iframe src="https://giphy.com/embed/e619oxLUaSsu8OVoF9" width="480" height="480" frameBorder="0" class="giphy-embed" allowFullScreen></iframe><p><a href="https://giphy.com/gifs/portalr7-instagram-tech-e619oxLUaSsu8OVoF9">via GIPHY</a></p>
+                  <q-icon name="live_tv" color="primary" size="56px" />
                 </div>
               </q-carousel-slide>
               <q-carousel-slide name="tv" class="column no-wrap flex-center">

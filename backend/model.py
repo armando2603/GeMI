@@ -63,7 +63,7 @@ class Predictor:
 
         # self.model.resize_token_embeddings(len(self.tokenizer))
         # self.name_model = 'checkpoint_4-epoch=14-val_loss=0.306.ckpt'
-        self.name_model = 'checkpoint_4-epoch=05-val_loss=0.336.ckpt'
+        self.name_model = 'checkpoint_4_masked-epoch=03-val_loss=0.166.ckpt'
         # checkpoint = torch.load('Models/' + self.name_model)
         # if 'state_dict' in checkpoint.keys():
         #     state_dict = checkpoint['state_dict']
