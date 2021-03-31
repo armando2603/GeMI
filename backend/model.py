@@ -46,7 +46,7 @@ class Predictor:
         # Load pre-trained model (weights)
         model_name = 'gpt2'
         self.config = GPT2Config()
-        # self.model = GPT2LMHeadModel(self.config)
+        self.model = GPT2LMHeadModel(self.config)
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.tokenizer.add_special_tokens({
             'pad_token': '<PAD>',
@@ -61,21 +61,21 @@ class Predictor:
         # self.model_1.resize_token_embeddings(len(self.tokenizer))
         # self.model_2.resize_token_embeddings(len(self.tokenizer))
 
-        # self.model.resize_token_embeddings(len(self.tokenizer))
+        self.model.resize_token_embeddings(len(self.tokenizer))
         # self.name_model = 'checkpoint_4-epoch=14-val_loss=0.306.ckpt'
-        self.name_model = 'checkpoint_4_masked-epoch=03-val_loss=0.166.ckpt'
-        # checkpoint = torch.load('Models/' + self.name_model)
-        # if 'state_dict' in checkpoint.keys():
-        #     state_dict = checkpoint['state_dict']
-        #     new_state_dict = OrderedDict()
-        #     for k, v in state_dict.items():
-        #         if k[:6] == 'model.':
-        #             name = k[6:]
-        #         else:
-        #             name = k
-        #         new_state_dict[name] = v
-        #     self.model.load_state_dict(new_state_dict)
-        #     torch.save(self.model.state_dict(), 'Models/' + self.name_model)
+        self.name_model = '__temp_weight_distributed_end.ckpt'
+        checkpoint = torch.load('Models/' + self.name_model)
+        if 'state_dict' in checkpoint.keys():
+            state_dict = checkpoint['state_dict']
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                if k[:6] == 'model.':
+                    name = k[6:]
+                else:
+                    name = k
+                new_state_dict[name] = v
+            self.model.load_state_dict(new_state_dict)
+            torch.save(self.model.state_dict(), 'Models/' + self.name_model)
 
         # checkpoint = torch.load('Models/' + self.name_model_1)
         # if 'state_dict' in checkpoint.keys():
