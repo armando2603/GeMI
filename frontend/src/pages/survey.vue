@@ -700,7 +700,7 @@ export default {
       filterOptions: [],
       stringOptions: fieldsValues,
       loadStatus: 0,
-      showInstructions: true,
+      showInstructions: false,
       InstructionSlide: 'loading samples',
       zeroWarns: false,
       fileGEO: null,

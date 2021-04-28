@@ -6,6 +6,7 @@ from GEOparse import get_GEO
 import numpy as np
 import json
 import datetime
+import time
 from os import path
 
 # configuration
@@ -60,7 +61,6 @@ def gradientParser(
         scores = grad_explain[:-1, :]
         scores = np.mean(scores, axis=0)
 
-        scores = scores[1:len(input_tokens)+1]
         max_scores = np.max(scores)
         max_scores = 1 if max_scores == 0.0 else max_scores
         scores = scores / max_scores
@@ -70,7 +70,6 @@ def gradientParser(
         )
 
         input_list = list(zip(input_tokens, scores))
-
         word_list = []
         values_list = input_list
         new_values_list = []
@@ -82,8 +81,8 @@ def gradientParser(
             while end_word is False:
                 next_word = values_list[i][0]
                 next_score = values_list[i][1]
-                if (next_word[0] !=
-                        (' ' or '_' or '-' or ':' or ';' or '(' or ')')):
+                if ((' ' or '_' or '-' or ':' or ';' or '(' or ')')
+                        not in next_word[0]):
                     new_world += next_word
                     mean_scores.append(next_score)
                 else:
@@ -93,10 +92,18 @@ def gradientParser(
                     )
                 i += 1
                 if i == len(values_list):
-                    end_word = True
-                    new_values_list.append(
-                        [new_world, np.mean(mean_scores)]
-                    )
+                    if not end_word:
+                        new_values_list.append(
+                            [new_world, np.mean(mean_scores)]
+                        )
+                        end_word = True
+                    else:
+                        mean_scores = [values_list[i-1][1]]
+                        new_world = values_list[i-1][0]
+                        new_values_list.append(
+                            [new_world, np.mean(mean_scores)]
+                        )
+
         word_list.append(new_values_list)
 
         gradient_input = word_list
@@ -354,8 +361,7 @@ def generateTable():
         input_text_words = [
             word if len(word) < 30 else '' for word in input_text_words
         ]
-        input_text = ' '.join(input_text_words)
-
+        input_text = ' '.join(input_text_words) + '  '
         # text_list = [
         #     # gsm['organism'],
         #     gsm['characteristics'],
@@ -404,7 +410,7 @@ def searchGEO():
         if 'GSM' in geo:
             gsm = geo
             gsm = gsm.replace('"', '')
-            gsm_data = get_GEO(geo=gsm, silent=True, destdir='data/GEO', )
+            gsm_data = get_GEO(geo=gsm, silent=True, destdir='data/GEO', how='brief')
             description = (
                 ' - '.join(gsm_data.metadata['description'])
                 if 'description' in gsm_data.metadata.keys()
@@ -691,7 +697,7 @@ def AttentionParse(
 def saveAndTrain():
     data = request.get_json()
     input_text = data['input_text']
-    output_texts = data['output_text']
+    outputs = data['outputs']
     gsm = data['gsm']
 
     if path.isfile('data/new_dataset.json'):
@@ -699,25 +705,24 @@ def saveAndTrain():
             new_dataset = json.load(f)
     else:
         new_dataset = []
+
     new_dataset.append(
         dict(
             GSM=gsm,
             input=input_text,
-            output=(
-                output_texts['2'].replace(
-                    '<EOS>', '<SEPO>'
-                ) + output_texts['1']
-            )
+            output=outputs
         )
     )
 
     with open('data/new_dataset.json', 'w') as file:
         json.dump(new_dataset, file)
 
-    for index in [1, 2]:
-        pred.model_id = index
-        output_text = output_texts[str(index)]
-        pred.onlineLearning(input_text, output_text)
+    output_list = []
+    field_list = []
+    for output in outputs:
+        output_list.append(' ' + output['value'] + '<EOS>')
+        field_list.append(str(output['field']) + ':')
+    pred.onlineLearning(input_text, output_list, field_list)
     return 'okay'
 
 
@@ -725,10 +730,16 @@ def saveAndTrain():
 def regenerateTable():
     data = request.get_json()
     input_list = data['inputList']
-    pred.fields = data['output_fields']
+    fields = data['output_fields']
     pred.model_id = data['exp_id']
-    new_table_json = pred.generateTable(input_list)
+    new_table_json = pred.generateTable(input_list, fields)
     return jsonify(new_table_json)
+
+
+@app.route('/getGenerateStatus', methods=['GET'])
+def getGenerateStatus():
+    time.sleep(2)
+    return jsonify(pred.status)
 
 
 if __name__ == '__main__':

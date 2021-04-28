@@ -37,11 +37,12 @@ class Predictor:
         self.pretrained_model = ''
         self.fields = []
         self.device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu"
+            "cuda:1" if torch.cuda.is_available() else "cpu"
         )
         self.generated_sequence = None
         self.MAX_LEN = 350
         self.model = None
+        self.status = 0
         self.model_id = None
         # Load pre-trained model (weights)
         model_name = 'gpt2'
@@ -52,8 +53,7 @@ class Predictor:
             'pad_token': '<PAD>',
             'bos_token': '<BOS>',
             'eos_token': '<EOS>',
-            'sep_token': '<SEP>',
-            'additional_special_tokens': ['<SEPO>']
+            'sep_token': '<SEP>'
         })
         self.base_model = GPT2LMHeadModel(self.config)
         self.base_model.resize_token_embeddings(len(self.tokenizer))
@@ -63,7 +63,7 @@ class Predictor:
 
         self.model.resize_token_embeddings(len(self.tokenizer))
         # self.name_model = 'checkpoint_4-epoch=14-val_loss=0.306.ckpt'
-        self.name_model = '__temp_weight_distributed_end.ckpt'
+        self.name_model = 'checkpoint-4-8+-epoch=12-val_loss=0.287.ckpt'
         checkpoint = torch.load('Models/' + self.name_model)
         if 'state_dict' in checkpoint.keys():
             state_dict = checkpoint['state_dict']
@@ -124,6 +124,7 @@ class Predictor:
             self.grad_explains = []
             self.generated_sequences = []
             end_id = self.tokenizer.eos_token_id
+            print(input_text)
             prefix_input_ids = self.tokenizer.encode(
                 input_text,
                 return_tensors='pt',
@@ -147,7 +148,8 @@ class Predictor:
                     ),
                     dim=-1
                 ).to(self.device)
-                input_length = prefix_input_ids.shape[1] + 1
+                # print(self.tokenizer.decode(input_ids[0]))
+                input_length = prefix_input_ids.shape[1]
                 generated_sequence = []
                 distributions = []
                 # colon_id = self.tokenizer.encode(':')[0]
@@ -155,7 +157,7 @@ class Predictor:
                 # attn_mask_value = torch.zeros(1, 0, device=self.device)
                 # is_value = False
                 # attn_mask = torch.ones(input_ids.shape, device=self.device)
-                while(len(generated_sequence) < 20):
+                while(len(generated_sequence) < 30):
 
                     inputs_embeds, token_ids_tensor_one_hot = \
                         self._get_embeddings(input_ids[0])
@@ -180,7 +182,7 @@ class Predictor:
                         inputs_embeds
                     )
                     grad_explain.append(
-                        grad_x_input[:input_length].detach()
+                        grad_x_input[1:(input_length + 1)].detach()
                     )
                     input_ids = torch.cat(
                         (input_ids, predicted_token_tensor.view(1, 1)),
@@ -239,27 +241,29 @@ class Predictor:
         return inputs_embeds, token_ids_tensor_one_hot
 
     def generateTable(self, list_input_dict, fields):
+        self.status = 0
         self.model = self.base_model.to(self.device)
         table_json = []
         self.fields = fields
+        if path.isfile('Models/' + 'augmented_' + self.name_model):
+            augmented = 'augmented_'
+        else:
+            augmented = ''
+        self.model.load_state_dict(
+            torch.load('Models/' + augmented + self.name_model)
+        )
         with torch.no_grad():
             for it, input_dict in enumerate(tqdm(list_input_dict)):
+                self.status = round((it + 1)/len(list_input_dict), 2) * 100
                 prediction_list = []
                 fields_dict = dict()
                 pre_input_ids = self.tokenizer.encode(
-                    input_dict['input_text'].strip(),
+                    input_dict['input_text'].lower(),
                     return_tensors='pt',
                     truncation=True,
                     max_length=self.MAX_LEN
                 )
                 for field in self.fields:
-                    if path.isfile('Models/' + 'augmented_' + self.name_model):
-                        augmented = 'augmented_'
-                    else:
-                        augmented = ''
-                    self.model.load_state_dict(
-                        torch.load('Models/' + augmented + self.name_model)
-                    )
                     # print(input_dict['input_text'])
                     conditional_ids = self.tokenizer.encode(
                         field + ':',
@@ -286,7 +290,7 @@ class Predictor:
                     # is_value = False
                     # attn_mask = torch.ones(input_ids.shape, device=self.device)
                     past = None
-                    while(len(generated_sequence) < 300):
+                    while(len(generated_sequence) < 20):
                         out = self.model(
                             input_ids,
                             # attention_mask=attn_mask,
@@ -327,7 +331,7 @@ class Predictor:
                         GSM=input_dict['GSM'],
                         input=self.tokenizer.decode(
                             self.tokenizer.encode(
-                                input_dict['input_text'].strip(),
+                                input_dict['input_text'].lower(),
                                 truncation=True,
                                 max_length=self.MAX_LEN
                             )
@@ -335,9 +339,9 @@ class Predictor:
                         fields=fields_dict
                     )
                 )
-            del self.model
-            torch.cuda.empty_cache()
-            return table_json
+        del self.model
+        torch.cuda.empty_cache()
+        return table_json
 
     def extract_values(self, text_ids, distributions, field):
         generated_sequence = np.array(text_ids)
@@ -372,119 +376,113 @@ class Predictor:
 
         return value, confidence
 
-    def onlineLearning(self, input_text, output_text):
+    def onlineLearning(self, input_text, output_list, field_list):
         self.model = self.base_model.to(self.device)
-        if self.model_id == 2:
-            if path.isfile('Models/' + 'augmented_' + self.name_model_2):
-                augmented = 'augmented_'
-            else:
-                augmented = ''
-            self.model.load_state_dict(
-                torch.load('Models/' + augmented + self.name_model_2)
-            )
-        if self.model_id == 1:
-            if path.isfile('Models/' + 'augmented_' + self.name_model_1):
-                augmented = 'augmented_'
-            else:
-                augmented = ''
-            self.model.load_state_dict(
-                torch.load('Models/' + augmented + self.name_model_1)
-            )
-        input_ids = self.tokenizer.encode(
+        if path.isfile('Models/' + 'augmented_' + self.name_model):
+            augmented = 'augmented_'
+        else:
+            augmented = ''
+        self.model.load_state_dict(
+            torch.load('Models/' + augmented + self.name_model)
+        )
+        input_prefix = self.tokenizer.encode(
             input_text,
             return_tensors='pt',
             truncation=True,
             max_length=self.MAX_LEN
         ).to(self.device)
-        print(output_text)
-        output_ids = self.tokenizer.encode(
-            output_text,
-            return_tensors='pt'
-        ).to(self.device)
-        inp_out_ids = torch.cat(
-            (
-                torch.tensor([[self.tokenizer.bos_token_id]], device=self.device),
-                input_ids,
-                torch.tensor([[self.tokenizer.sep_token_id]], device=self.device),
-                output_ids
-            ),
-            dim=-1
-        )
-        inp_out_ids = inp_out_ids
-        labels = inp_out_ids.clone().detach()
-        labels[0, :-output_ids.shape[1]] = torch.ones(
-            input_ids.shape[1] + 2
-        ) * -100
+        for output_text, field in zip(output_list, field_list):
+            print(output_text)
+            output_ids = self.tokenizer.encode(
+                output_text,
+                return_tensors='pt'
+            ).to(self.device)
+            conditional_ids = self.tokenizer.encode(
+                field,
+                return_tensors='pt'
+            ).to(self.device)
+            inp_out_ids = torch.cat(
+                (
+                    torch.tensor([[self.tokenizer.bos_token_id]], device=self.device),
+                    input_prefix,
+                    torch.tensor([[self.tokenizer.sep_token_id]], device=self.device),
+                    conditional_ids,
+                    output_ids
+                ),
+                dim=-1
+            )
+            labels = inp_out_ids.clone().detach()
+            labels[0, :-output_ids.shape[1]] = torch.ones(
+                input_prefix.shape[1] + conditional_ids.shape[1] + 2
+            ) * -100
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-5)
-        new_output = torch.empty(output_ids.shape, device=self.device)
-        not_match = True
-        max_epochs = 3
-        epoch = 0
-        while (not_match and epoch < max_epochs):
-            epoch += 1
-            self.model.train()
-            optimizer.zero_grad()
-            output = self.model(inp_out_ids, labels=labels, return_dict=True)
-            loss = output.loss
-            print(loss)
-            loss.backward()
-            optimizer.step()
-            self.model.eval()
-            with torch.no_grad():
-                past = None
-                inp = torch.cat(
-                    (
-                        torch.tensor(
-                            [[self.tokenizer.bos_token_id]],
-                            device=self.device
+            optimizer = torch.optim.Adam(self.model.parameters(), lr=2e-5)
+            new_output = torch.empty(output_ids.shape, device=self.device)
+            not_match = True
+            max_epochs = 10
+            epoch = 0
+            while (not_match and epoch < max_epochs):
+                epoch += 1
+                self.model.train()
+                optimizer.zero_grad()
+                output = self.model(inp_out_ids, labels=labels, return_dict=True)
+                loss = output.loss
+                print(loss)
+                loss.backward()
+                optimizer.step()
+                self.model.eval()
+                with torch.no_grad():
+                    past = None
+                    inp = torch.cat(
+                        (
+                            torch.tensor(
+                                [[self.tokenizer.bos_token_id]],
+                                device=self.device
+                            ),
+                            input_prefix,
+                            torch.tensor(
+                                [[self.tokenizer.sep_token_id]],
+                                device=self.device
+                            ),
+                            conditional_ids
                         ),
-                        input_ids,
-                        torch.tensor(
-                            [[self.tokenizer.sep_token_id]],
-                            device=self.device
-                        )
-                    ),
-                    dim=-1
-                )
-                generated_sequence = torch.zeros(
-                    (1, 0),
-                    device=self.device
-                ).long()
-                while(len(generated_sequence) < 300):
-                    out = self.model(
-                        inp,
-                        # attention_mask=attn_mask,
-                        past_key_values=past,
-                        use_cache=True,
-                        return_dict=True
-                    )
-                    past = out.past_key_values
-                    last_tensor = out.logits[0, -1, :]
-                    predicted_token_tensor = torch.argmax(last_tensor)
-                    inp = predicted_token_tensor.view(1, 1)
-                    generated_sequence = torch.cat(
-                        (generated_sequence, predicted_token_tensor.view(1,1)),
                         dim=-1
                     )
-                    if predicted_token_tensor == self.tokenizer.eos_token_id:
-                        break
-                new_output = generated_sequence
-                if new_output.shape == output_ids.shape:
-                    if torch.all(new_output.eq(output_ids)):
-                        not_match = False
-        if self.model_id == 2:
-            torch.save(
-                self.model.state_dict(),
-                'Models/augmented_checkpoint_2_lessout-epoch=25-val_loss=0.253.ckpt'
-            )
-            del self.model
-            torch.cuda.empty_cache()
-        if self.model_id == 1:
-            torch.save(
-                self.model.state_dict(),
-                'Models/augmented_checkpoint_1-epoch=13-val_loss=0.063.ckpt'
-            )
+                    generated_sequence = torch.zeros(
+                        (1, 0),
+                        device=self.device
+                    ).long()
+                    while(len(generated_sequence) < 300):
+                        out = self.model(
+                            inp,
+                            # attention_mask=attn_mask,
+                            past_key_values=past,
+                            use_cache=True,
+                            return_dict=True
+                        )
+                        past = out.past_key_values
+                        last_tensor = out.logits[0, -1, :]
+                        predicted_token_tensor = torch.argmax(last_tensor)
+                        inp = predicted_token_tensor.view(1, 1)
+                        generated_sequence = torch.cat(
+                            (generated_sequence, predicted_token_tensor.view(1,1)),
+                            dim=-1
+                        )
+                        if predicted_token_tensor == self.tokenizer.eos_token_id:
+                            break
+                    print(f'output generato per field: {field}, con output {self.tokenizer.decode(list(output_ids[0]))} e con generate sequence:', self.tokenizer.decode(list(generated_sequence[0])))
+                    new_output = generated_sequence
+                    if new_output.shape == output_ids.shape:
+                        if torch.all(new_output.eq(output_ids)):
+                            not_match = False
+
+            # 1
+        torch.save(
+            self.model.state_dict(),
+            'Models/' + 'augmented_' + self.name_model
+        )
+        del self.model
+        torch.cuda.empty_cache()
         # torch.save(
         #     self.model.state_dict(),
         #     'Models/' + self.name_model_2
