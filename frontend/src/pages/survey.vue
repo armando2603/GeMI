@@ -16,6 +16,16 @@
         </q-card-section>
       </q-card>
     </q-dialog>
+    <q-dialog v-model='loadingSamples' persistent>
+      <q-card style="width: 400px" class="q-pa-md text-primary">
+        <q-card-section>
+          <div class="text-h6">Your samples are loading...</div>
+        </q-card-section>
+        <q-card-section class='q-pt-md row justify-evenly'>
+          <q-spinner color="primary" size="7em" />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
     <div class='q-pt-md justify-evenly column'>
     <div style="width: 100%">
       <template>
@@ -69,6 +79,7 @@
               </div> -->
               <div class='q-pl-md'>
                 <q-btn
+                  v-if="false"
                   rounded
                   color="primary"
                   label="Load Samples"
@@ -201,15 +212,16 @@
                   @click="exportTable"
                 />
               </div>
-              <div class='q-pl-md'>
+              <!-- <div class='q-pl-md'>
                 <q-btn
+                  v-if='false'
                   rounded
                   no-caps
                   color="primary"
                   label="Import Table"
                   @click='importJSON = true'
                 />
-              </div>
+              </div> -->
               <q-dialog v-model="importJSON" persistent transition-show="scale" transition-hide="scale">
                 <q-card style='width: 400px; height: 300px'>
                   <q-card-section class="row items-center q-pb-none">
@@ -240,6 +252,7 @@
               </q-dialog>
               <div class='q-pl-md'>
                 <q-btn
+                  v-if='false'
                   rounded
                   color="red-4"
                   label="Delete Table"
@@ -467,7 +480,7 @@
                 </q-dialog>
               </div>
               <div class="row justify-center">
-                <q-btn class='q-mt-sm' color="primary" rounded icon='done' v-if='tableType==="principal" && !loadGpt2 && gpt2Computed' @click='checkWarns(); confirmSaveAndTrain=true' />
+                <q-btn class='q-mt-sm' color="primary" rounded :disabled='!checkAtLeastOneCorrection()' icon='done' v-if='tableType==="principal" && !loadGpt2 && gpt2Computed' @click='checkWarns(); confirmSaveAndTrain=true' />
               </div>
             </q-card-section>
           </q-card>
@@ -571,7 +584,7 @@
                 />
               </div>
               <div class='q-pt-md justify-evenly row'>
-                <q-btn rounded size='md' color='primary' label='Edit' @click='edit()'/>
+                <q-btn rounded size='md' color='primary' no-caps label='Apply' @click='edit()'/>
                 <!-- <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/> -->
                 <!-- <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/> -->
               </div>
@@ -689,13 +702,17 @@
 import fieldsValues from '../assets/fields_values.json'
 // import jsonTable from '../assets/dataset_table.json'
 // import jsonTable from '../assets/outputs.json'
-// import jsonTable2 from '../assets/dataset_table2.json'
+// import jsonTable2 from '../assets/table_2.json'
 // import jsonTable2 from '../assets/data_pred.json'
 import { exportFile } from 'quasar'
 
 export default {
   data () {
     return {
+      inputIndexes: [],
+      surveyTable: null,
+      deletedSurvey: false,
+      surveyIndex: 0,
       popupOpen: false,
       filterOptions: [],
       stringOptions: fieldsValues,
@@ -744,7 +761,7 @@ export default {
       show_error: false,
       error_text: '',
       searchingSamples: false,
-      loadingSamples: false,
+      loadingSamples: true,
       disableLoadSamples: true,
       uploadSamples: false,
       edit_text: null,
@@ -761,7 +778,7 @@ export default {
       hideHeadsLayers: true,
       attentions: [],
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'http://10.79.23.5:5003',
+      backendIP: 'http://131.175.120.138:51113',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -883,7 +900,13 @@ export default {
         { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
       ],
       inputs: [
-        { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
+        { field: 'gse:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'title:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'sample type:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'source name:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'organism:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'characteristics:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'description:', values: [{ text: '', color: 'bg-white' }] }
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
       attentionResults: [],
@@ -1115,8 +1138,49 @@ export default {
           this.outputs = response.data.outputs
           this.correctionTable = JSON.parse(JSON.stringify(this.outputs))
           this.gradientResults = response.data.gradient
-          // this.output_indexes = response.data.output_indexes
-          // this.attentionResults = response.data.attentions_results
+          this.inputIndexes = [
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 }
+          ]
+          for (const [index, value] of this.gradientResults[0][0].entries()) {
+            if (value.text === '[gse]:') {
+              this.inputIndexes[0].begin = index + 1
+            }
+            if (value.text === ' [title]:') {
+              this.inputIndexes[0].end = index
+              this.inputIndexes[1].begin = index + 1
+            }
+            if (value.text === ' [sample') {
+              this.inputIndexes[1].end = index
+            }
+            if (value.text === ' type]:') {
+              this.inputIndexes[2].begin = index + 1
+            }
+            if (value.text === ' [source') {
+              this.inputIndexes[2].end = index
+            }
+            if (value.text === ' name]:') {
+              this.inputIndexes[3].begin = index + 1
+            }
+            if (value.text === ' [organism]:') {
+              this.inputIndexes[3].end = index
+              this.inputIndexes[4].begin = index + 1
+            }
+            if (value.text === ' [characteristics]:') {
+              this.inputIndexes[4].end = index
+              this.inputIndexes[5].begin = index + 1
+            }
+            if (value.text === ' [description]:') {
+              this.inputIndexes[5].end = index
+              this.inputIndexes[6].begin = index + 1
+            }
+          }
+          this.inputIndexes[6].end = this.gradientResults[0][0].length
           this.gpt2Computed = true
           this.loadGpt2 = false
           this.disableGpt2button = true
@@ -1164,11 +1228,11 @@ export default {
       }
       if (this.datasetType === 1) {
         this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+        // this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
       }
       if (this.datasetType === 2) {
         this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+        // this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
       }
       this.isValid = true
       this.disableGpt2button = false
@@ -1215,8 +1279,8 @@ export default {
           }
         }
         if (this.typeInterpreter === 'gradient') {
-          for (const i of Array(this.inputs_api.length).keys()) {
-            this.inputs[i].values = this.gradientResults[index][i]
+          for (const i of Array(this.inputs.length).keys()) {
+            this.inputs[i].values = this.gradientResults[index][0].slice(this.inputIndexes[i].begin, this.inputIndexes[i].end)
           }
           this.last_index = index
         }
@@ -1239,7 +1303,9 @@ export default {
       this.edit_text = null
       this.edit_label = null
       this.id = 'none'
-      this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
+      for (const x of Array(this.inputs.length).keys()) {
+        this.inputs[x].values = [{ text: '', color: 'bg-white' }]
+      }
       this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
       if (this.datasetType === 1) {
         this.showGeoInput = true
@@ -1423,6 +1489,7 @@ export default {
       })
     },
     deleteTable () {
+      this.deletedSurvey = true
       this.$axios.post(
         this.backendIP + '/deleteTable',
         { table_id: 2 }
@@ -1551,7 +1618,12 @@ export default {
           }
           this.table_json[this.tableType] = filteredTable
           console.log('dovrebbe aver salvato')
-          this.store_json()
+          // this.store_json()
+          this.surveyTable[this.surveyIndex].used = true
+          this.$axios.post(
+            this.backendIP + '/storeSurveyJSON',
+            this.surveyTable
+          ).catch(error => (error.message))
           this.resetPage()
           const maxStatus = this.getSampleWithMaxWarns()
           if (maxStatus.max === 0) {
@@ -1582,6 +1654,12 @@ export default {
         if (this.correctionTable[index].confidence <= this.greenThreshold) this.missingEdit = true
       }
     },
+    checkAtLeastOneCorrection () {
+      for (const output of this.correctionTable) {
+        if (output.fixed === true) return true
+      }
+      return false
+    },
     getSampleWithMaxWarns () {
       let max = -1
       let maxId = null
@@ -1601,7 +1679,7 @@ export default {
         newIndex += 1
       }
       this.table_json.principal = []
-      this.store_json()
+      // this.store_json()
       this.resetPage()
     },
     filterFn (val, update) {
@@ -1650,11 +1728,42 @@ export default {
   created () {
     this.stringOptions.Age = []
     this.columns = this.columns2
-    this.$axios.get(this.backendIP + '/getJSONs')
+    this.deleteTable()
+    // this.table_json.principal = jsonTable2
+    this.$axios.get(this.backendIP + '/getSurveyJSON')
       .then((response) => {
-        this.table_json.corrected = response.data[0]
-        this.table_json.principal = response.data[1]
-        this.resetPage()
+        this.surveyTable = response.data
+        for (const entry of response.data) {
+          if (entry.used === true) {
+            this.surveyIndex += 1
+          } else {
+            this.GEO_list_text = entry.gse
+            break
+          }
+        }
+        console.log(this.GEO_list_text)
+        if (this.GEO_list_text.trim() === '') {
+          this.GSMS_data = []
+          return
+        }
+        this.show_error = false
+        this.searchingSamples = true
+        const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
+        console.log(searchList)
+        this.$axios.post(
+          this.backendIP + '/searchGEO',
+          { searchList: searchList }
+        ).then(response => {
+          this.GSMS_data = response.data
+          this.searchingSamples = false
+          this.loadSamples()
+          // this.resetPage()
+        }).catch(error => {
+          console.log(error.message)
+          this.searchingSamples = false
+          this.show_error = true
+          this.error_text = 'Something went wrong, please control the input'
+        })
       }).catch(error => (error.message))
   }
 }

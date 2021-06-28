@@ -201,15 +201,15 @@
                   @click="exportTable"
                 />
               </div>
-              <div class='q-pl-md'>
+              <!-- <div class='q-pl-md'>
                 <q-btn
                   rounded
                   no-caps
                   color="primary"
                   label="Import Table"
                   @click='importJSON = true'
-                />
-              </div>
+                /> -->
+              <!-- </div> -->
               <q-dialog v-model="importJSON" persistent transition-show="scale" transition-hide="scale">
                 <q-card style='width: 400px; height: 300px'>
                   <q-card-section class="row items-center q-pb-none">
@@ -467,7 +467,7 @@
                 </q-dialog>
               </div>
               <div class="row justify-center">
-                <q-btn class='q-mt-sm' color="primary" rounded icon='done' v-if='tableType==="principal" && !loadGpt2 && gpt2Computed' @click='checkWarns(); confirmSaveAndTrain=true' />
+                <q-btn class='q-mt-sm' color="primary" rounded icon='done' :disabled='!checkAtLeastOneCorrection()' v-if='tableType==="principal" && !loadGpt2 && gpt2Computed' @click='checkWarns(); confirmSaveAndTrain=true' />
               </div>
             </q-card-section>
           </q-card>
@@ -571,7 +571,7 @@
                 />
               </div>
               <div class='q-pt-md justify-evenly row'>
-                <q-btn rounded size='md' color='primary' label='Edit' @click='edit()'/>
+                <q-btn rounded size='md' color='primary' no-caps label='Apply' @click='edit()'/>
                 <!-- <q-btn rounded size='sm' color='primary' label='change' @click='changeOutput()'/> -->
                 <!-- <q-btn rounded size='sm' color='primary' label='confirm' @click='confirmOutput()'/> -->
               </div>
@@ -696,6 +696,7 @@ import { exportFile } from 'quasar'
 export default {
   data () {
     return {
+      inputIndexes: [],
       popupOpen: false,
       filterOptions: [],
       stringOptions: fieldsValues,
@@ -760,8 +761,9 @@ export default {
       headsCustomOp: 'avg',
       hideHeadsLayers: true,
       attentions: [],
+      // ssh serna@131.175.120.138
       // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
-      backendIP: 'http://10.79.23.5:5003',
+      backendIP: 'http://131.175.120.138:51113',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       selected_heads: [],
@@ -880,10 +882,16 @@ export default {
       ],
       id: 'none',
       inputs_api: [
-        { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
+        { field: 'gse:', values: [{ text: '', color: 'bg-white' }] }
       ],
       inputs: [
-        { field: 'Input Text', values: [{ text: '', color: 'bg-white' }] }
+        { field: 'gse:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'title:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'sample type:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'source name:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'organism:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'characteristics:', values: [{ text: '', color: 'bg-white' }] },
+        { field: 'description:', values: [{ text: '', color: 'bg-white' }] }
       ],
       limeResults: [[[], [], []], [[], [], []], [[], [], []], [[], [], []]],
       attentionResults: [],
@@ -1115,8 +1123,49 @@ export default {
           this.outputs = response.data.outputs
           this.correctionTable = JSON.parse(JSON.stringify(this.outputs))
           this.gradientResults = response.data.gradient
-          // this.output_indexes = response.data.output_indexes
-          // this.attentionResults = response.data.attentions_results
+          this.inputIndexes = [
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 },
+            { end: 0, begin: 0 }
+          ]
+          for (const [index, value] of this.gradientResults[0][0].entries()) {
+            if (value.text === '[gse]:') {
+              this.inputIndexes[0].begin = index + 1
+            }
+            if (value.text === ' [title]:') {
+              this.inputIndexes[0].end = index
+              this.inputIndexes[1].begin = index + 1
+            }
+            if (value.text === ' [sample') {
+              this.inputIndexes[1].end = index
+            }
+            if (value.text === ' type]:') {
+              this.inputIndexes[2].begin = index + 1
+            }
+            if (value.text === ' [source') {
+              this.inputIndexes[2].end = index
+            }
+            if (value.text === ' name]:') {
+              this.inputIndexes[3].begin = index + 1
+            }
+            if (value.text === ' [organism]:') {
+              this.inputIndexes[3].end = index
+              this.inputIndexes[4].begin = index + 1
+            }
+            if (value.text === ' [characteristics]:') {
+              this.inputIndexes[4].end = index
+              this.inputIndexes[5].begin = index + 1
+            }
+            if (value.text === ' [description]:') {
+              this.inputIndexes[5].end = index
+              this.inputIndexes[6].begin = index + 1
+            }
+          }
+          this.inputIndexes[6].end = this.gradientResults[0][0].length
           this.gpt2Computed = true
           this.loadGpt2 = false
           this.disableGpt2button = true
@@ -1164,11 +1213,11 @@ export default {
       }
       if (this.datasetType === 1) {
         this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+        // this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
       }
       if (this.datasetType === 2) {
         this.inputs_api[0].values[0].text = this.table_json[this.tableType][this.id].input
-        this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
+        // this.inputs[0].values[0].text = this.table_json[this.tableType][this.id].input
       }
       this.isValid = true
       this.disableGpt2button = false
@@ -1215,8 +1264,8 @@ export default {
           }
         }
         if (this.typeInterpreter === 'gradient') {
-          for (const i of Array(this.inputs_api.length).keys()) {
-            this.inputs[i].values = this.gradientResults[index][i]
+          for (const i of Array(this.inputs.length).keys()) {
+            this.inputs[i].values = this.gradientResults[index][0].slice(this.inputIndexes[i].begin, this.inputIndexes[i].end)
           }
           this.last_index = index
         }
@@ -1239,7 +1288,9 @@ export default {
       this.edit_text = null
       this.edit_label = null
       this.id = 'none'
-      this.inputs = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
+      for (const x of Array(this.inputs.length).keys()) {
+        this.inputs[x].values = [{ text: '', color: 'bg-white' }]
+      }
       this.inputs_api = [{ field: 'Text', values: [{ text: '', color: 'bg-white' }] }]
       if (this.datasetType === 1) {
         this.showGeoInput = true
@@ -1312,6 +1363,12 @@ export default {
         }
       }
       return nWarn
+    },
+    checkAtLeastOneCorrection () {
+      for (const output of this.correctionTable) {
+        if (output.fixed === true) return true
+      }
+      return false
     },
     count_fixs (row) {
       var nFix = 0

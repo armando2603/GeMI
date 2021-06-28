@@ -37,8 +37,9 @@ class Predictor:
         self.pretrained_model = ''
         self.fields = []
         self.device = torch.device(
-            "cuda:1" if torch.cuda.is_available() else "cpu"
+            "cuda:0" if torch.cuda.is_available() else "cpu"
         )
+        print(torch.cuda.is_available())
         self.generated_sequence = None
         self.MAX_LEN = 350
         self.model = None

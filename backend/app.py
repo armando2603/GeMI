@@ -742,6 +742,27 @@ def getGenerateStatus():
     return jsonify(pred.status)
 
 
+@app.route('/getSurveyJSON', methods=['GET'])
+def getSurveyJSONs():
+    if path.isfile('data/survey_table.json'):
+        with open('data/survey_table.json') as f:
+            survey_table = json.load(f)
+    else:
+        survey_table = [{'used': False, 'table': []}]
+        with open('data/survey_table.json', 'w') as f:
+            json.dump(survey_table, f)
+
+    return jsonify(survey_table)
+
+
+@app.route('/storeSurveyJSON', methods=['POST'])
+def storeSurveyJSON():
+    data = request.get_json()
+    with open('data/survey_table.json', 'w') as f:
+        json.dump(data, f)
+    return 'ok'
+
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
