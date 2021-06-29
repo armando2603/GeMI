@@ -410,49 +410,52 @@ def searchGEO():
         if 'GSM' in geo:
             gsm = geo
             gsm = gsm.replace('"', '')
-            gsm_data = get_GEO(geo=gsm, silent=True, destdir='data/GEO', how='brief')
-            description = (
-                ' - '.join(gsm_data.metadata['description'])
-                if 'description' in gsm_data.metadata.keys()
-                else ''
-            )
-            title = (
-                ' - '.join(gsm_data.metadata['title'])
-                if 'title' in gsm_data.metadata.keys()
-                else ''
-            )
-            sample_type = (
-                ' - '.join(gsm_data.metadata['type'])
-                if 'type' in gsm_data.metadata.keys()
-                else ''
-            )
-            source_name = (
-                ' - '.join(gsm_data.metadata['source_name_ch1'])
-                if 'source_name_ch1' in gsm_data.metadata.keys()
-                else ''
-            )
-            organism = (
-                ' - '.join(gsm_data.metadata['organism_ch1'])
-                if 'organism_ch1' in gsm_data.metadata.keys()
-                else ''
-            )
-            characteristics = (
-                ' - '.join(gsm_data.metadata['characteristics_ch1'])
-                if 'characteristics_ch1' in gsm_data.metadata.keys()
-                else ''
-            )
-            GEO_table.append(
-                dict(
-                    GSM=gsm,
-                    GSE=gsm_data.metadata['series_id'],
-                    title=title,
-                    sample_type=sample_type,
-                    source_name=source_name,
-                    organism=organism,
-                    characteristics=characteristics,
-                    description=description,
+            try:
+                gsm_data = get_GEO(geo=gsm, silent=True, destdir='data/GEO', how='brief')
+                description = (
+                    ' - '.join(gsm_data.metadata['description'])
+                    if 'description' in gsm_data.metadata.keys()
+                    else ''
                 )
-            )
+                title = (
+                    ' - '.join(gsm_data.metadata['title'])
+                    if 'title' in gsm_data.metadata.keys()
+                    else ''
+                )
+                sample_type = (
+                    ' - '.join(gsm_data.metadata['type'])
+                    if 'type' in gsm_data.metadata.keys()
+                    else ''
+                )
+                source_name = (
+                    ' - '.join(gsm_data.metadata['source_name_ch1'])
+                    if 'source_name_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                organism = (
+                    ' - '.join(gsm_data.metadata['organism_ch1'])
+                    if 'organism_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                characteristics = (
+                    ' - '.join(gsm_data.metadata['characteristics_ch1'])
+                    if 'characteristics_ch1' in gsm_data.metadata.keys()
+                    else ''
+                )
+                GEO_table.append(
+                    dict(
+                        GSM=gsm,
+                        GSE=gsm_data.metadata['series_id'],
+                        title=title,
+                        sample_type=sample_type,
+                        source_name=source_name,
+                        organism=organism,
+                        characteristics=characteristics,
+                        description=description,
+                    )
+                )
+            except:
+                continue
         if 'GSE' in geo:
             gse = geo
             gse_data = get_GEO(geo=gse, destdir='data/GEO')

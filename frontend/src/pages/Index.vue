@@ -1451,7 +1451,7 @@ export default {
     loadText () {
       var reader = new FileReader()
       reader.onload = (e) => {
-        console.log(reader.result)
+        // console.log(reader.result)
         this.GEO_list_text = reader.result
         this.fileGEO = null
       }
@@ -1465,7 +1465,7 @@ export default {
       this.show_error = false
       this.searchingSamples = true
       const searchList = this.GEO_list_text.trim().replace('"', '').replace("'", '').split(',').map(elem => elem.trim().toUpperCase())
-      console.log(searchList)
+      // console.log(searchList)
       this.$axios.post(
         this.backendIP + '/searchGEO',
         { searchList: searchList }
@@ -1550,7 +1550,7 @@ export default {
       for (const output of this.correctionTable) {
         if (output.fixed === true) outputs.push({ field: output.field, value: output.value })
       }
-      console.log(outputs)
+      // console.log(outputs)
       this.$axios.post(
         this.backendIP + '/saveAndTrain',
         {
@@ -1662,7 +1662,7 @@ export default {
       this.resetPage()
     },
     filterFn (val, update) {
-      console.log(this.output_fields[2][[0]])
+      // console.log(this.output_fields[2][[0]])
       update(() => {
         if (val === '') {
           this.filterOptions = this.stringOptions[this.output_fields[2][this.last_index]].filter(
