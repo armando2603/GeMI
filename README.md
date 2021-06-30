@@ -30,4 +30,6 @@ Welcome to the Genomic Metadata Integration tool! with this web-tool is possible
   ```console
   docker run -d --rm -it -v "/$(pwd)/gemi/frontend/:/usr/src/app/" -p 51111:8080 2603931630/gemi:frontend quasar dev && docker run -d -v "/$(pwd)/gemi/backend/:/workspace/" -p 51113:5003 -it --rm --gpus all 2603931630/gemi:backend flask run -p 5003 -h 0.0.0.0
   ```
+- In the browser go to the page http://localhost:51111/#/
+
 Remember that you need a gpu NVIDIA in your machine
