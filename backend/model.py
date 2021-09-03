@@ -37,7 +37,7 @@ class Predictor:
         self.pretrained_model = ''
         self.fields = []
         self.device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu"
+            "cuda:1" if torch.cuda.is_available() else "cpu"
         )
         print(torch.cuda.is_available())
         self.generated_sequence = None
@@ -65,7 +65,7 @@ class Predictor:
         self.model.resize_token_embeddings(len(self.tokenizer))
         # self.name_model = 'checkpoint_4-epoch=14-val_loss=0.306.ckpt'
         self.name_model = 'checkpoint-4-8+-epoch=12-val_loss=0.287.ckpt'
-        checkpoint = torch.load('Models/' + self.name_model)
+        checkpoint = torch.load('Models/' + self.name_model, map_location=self.device)
         if 'state_dict' in checkpoint.keys():
             state_dict = checkpoint['state_dict']
             new_state_dict = OrderedDict()
@@ -110,13 +110,15 @@ class Predictor:
 
     def predict(self, list_input_text, fields):
         self.fields = fields
-        self.model = self.base_model.to(self.device)
+        self.model = self.base_model
         if path.isfile('Models/' + 'augmented_' + self.name_model):
             augmented = 'augmented_'
         else:
             augmented = ''
         self.model.load_state_dict(
-            torch.load('Models/' + augmented + self.name_model)
+            torch.load(
+                'Models/' + augmented + self.name_model, map_location=self.device
+            )
         )
         # Predict all tokens
         for input_text in tqdm(list_input_text, position=0, leave=True):
@@ -220,7 +222,8 @@ class Predictor:
         # self.model = self.base_model
         if self.model_id == 1:
             del self.model
-            torch.cuda.empty_cache()
+            with torch.cuda.device(self.device):
+                torch.cuda.empty_cache()
         return self.generated_sequences, self.confidences, self.grad_explains
 
     def _get_embeddings(self, input_ids):
@@ -251,7 +254,9 @@ class Predictor:
         else:
             augmented = ''
         self.model.load_state_dict(
-            torch.load('Models/' + augmented + self.name_model)
+            torch.load(
+                'Models/' + augmented + self.name_model, map_location=self.device
+            )
         )
         with torch.no_grad():
             for it, input_dict in enumerate(tqdm(list_input_dict)):
@@ -309,7 +314,7 @@ class Predictor:
                         generated_sequence.append(predicted_token_tensor)
                         if predicted_token_tensor == end_id:
                             break
-                    # print(self.tokenizer.decode(generated_sequence))
+                    #print(self.tokenizer.decode(generated_sequence))
                     prediction_list.append(generated_sequence)
                     distributions = [
                         distribution.cpu().numpy()
@@ -341,7 +346,8 @@ class Predictor:
                     )
                 )
         del self.model
-        torch.cuda.empty_cache()
+        with torch.cuda.device(self.device):
+            torch.cuda.empty_cache()
         return table_json
 
     def extract_values(self, text_ids, distributions, field):
@@ -384,7 +390,9 @@ class Predictor:
         else:
             augmented = ''
         self.model.load_state_dict(
-            torch.load('Models/' + augmented + self.name_model)
+            torch.load(
+                'Models/' + augmented + self.name_model, map_location=self.device
+            )
         )
         input_prefix = self.tokenizer.encode(
             input_text,
@@ -483,7 +491,8 @@ class Predictor:
             'Models/' + 'augmented_' + self.name_model
         )
         del self.model
-        torch.cuda.empty_cache()
+        with torch.cuda.device(self.device):
+            torch.cuda.empty_cache()
         # torch.save(
         #     self.model.state_dict(),
         #     'Models/' + self.name_model_2
