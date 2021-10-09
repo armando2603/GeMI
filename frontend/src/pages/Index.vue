@@ -196,11 +196,20 @@
                 <q-btn
                   rounded
                   color="primary"
-                  label="Export Table"
+                  label="Export JSON"
                   no-caps
                   @click="exportTable"
                 />
               </div>
+              <!-- <div class='q-pl-md'>
+                <q-btn
+                  rounded
+                  color="primary"
+                  label="Export CSV"
+                  no-caps
+                  @click="exportCSV"
+                />
+              </div> -->
               <!-- <div class='q-pl-md'>
                 <q-btn
                   rounded
@@ -291,8 +300,8 @@
             <div class='justify-evenly row'>
               <div class="text-h6 text-primary">Selected Sample Data</div>
             </div>
-            <!-- <div class='justify-evenly row' style='height: 8px'>
-            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='blue-4' stack-label>
+            <div class='justify-evenly row' style='height: 8px'>
+            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:90px' label-slot dense outlined readonly label-color='blue-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
                   {{id}}
@@ -300,11 +309,11 @@
               </template>
               <template v-slot:label>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
-                  Index
+                  Sample Index
                 </div>
               </template>
             </q-field>
-            <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='red-4' stack-label>
+            <!-- <q-field class='q-pt-md' v-if='this.id !== "none"' style='height: 20px; width:55px' label-slot dense outlined readonly label-color='red-4' stack-label>
               <template v-slot:control>
                 <div class="self-center full-width no-outline" style='text-align: center' tabindex="0">
                   {{count_warns(table_json[tableType][id])}}
@@ -327,8 +336,8 @@
                   Fixes
                 </div>
               </template>
-            </q-field>
-          </div> -->
+            </q-field> -->
+          </div>
           </q-card-section>
           <q-card-section>
             <div class='q-pl-sm q-pr-sm' v-for="input in inputs" :key="input" >
@@ -467,7 +476,7 @@
                 </q-dialog>
               </div>
               <div class="row justify-center">
-                <q-btn class='q-mt-sm' color="primary" rounded icon='done' :disabled='!checkAtLeastOneCorrection()' v-if='tableType==="principal" && !loadGpt2 && gpt2Computed' @click='checkWarns(); confirmSaveAndTrain=true' />
+                <q-btn class='q-mt-sm' color="primary" no-caps rounded label='Save Sample' :disabled='!checkAtLeastOneCorrection()' v-if='tableType==="principal" && !loadGpt2 && gpt2Computed' @click='checkWarns(); confirmSaveAndTrain=true' />
               </div>
             </q-card-section>
           </q-card>
@@ -497,10 +506,10 @@
                   <template v-slot:control>
                     <div class="self-center full-width no-outline" tabindex="0">
                       {{ last_index === 'no_index' ? 'Select a field' : descriptions[last_index] }}
-                      <a v-if='[5,6,7,8,9,10, 13].includes(last_index)'>in this case check the value </a>
-                      <a v-if='[5,6,7,8,9,10, 13].includes(last_index)' href='https://www.lgcstandards-atcc.org/search#sort=relevancy' target="_blank">here</a>
+                      <a v-if='[5,6,7,8,9,10, 13].includes(last_index)'>in this case check the value on </a>
+                      <a v-if='[5,6,7,8,9,10, 13].includes(last_index)' href='https://www.lgcstandards-atcc.org/search#sort=relevancy' target="_blank">ATCC</a>
                       <a v-if='[5,6,7,8,9,10, 13].includes(last_index)'> or </a>
-                      <a v-if='[5,6,7,8,9,10, 13].includes(last_index)' href='https://web.expasy.org/cellosaurus/' target="_blank">here</a>
+                      <a v-if='[5,6,7,8,9,10, 13].includes(last_index)' href='https://web.expasy.org/cellosaurus/' target="_blank">Expasy Cellosaurus</a>
                       <a v-if='[5,6,7,8,9].includes(last_index)'> )</a>
                     </div>
                   </template>
@@ -761,8 +770,6 @@ export default {
       headsCustomOp: 'avg',
       hideHeadsLayers: true,
       attentions: [],
-      // ssh serna@131.175.120.138
-      // http://10.79.23.5:5003 or http://localhost:5003 http://2e886e4ea4d1.ngrok.io
       backendIP: 'http://localhost:51113',
       heads_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
       layers_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -1702,6 +1709,9 @@ export default {
       }
       // forces popup to show again. Can't avoid flickering
       // this.$refs.input.showPopup()
+    },
+    exportCSV () {
+
     }
   },
   created () {
