@@ -827,7 +827,7 @@ export default {
           format: val => `${val}`,
           sortable: true
         },
-        { name: 'warnings', label: 'Warns', align: 'center', field: row => this.count_warns(row), format: val => `${val}`, sortable: true },
+        { name: 'warnings', label: 'Warns', align: 'center', field: (row) => this.count_warns(row), format: val => `${val}`, sortable: true },
         { name: 'Fixs', label: 'Fixs', align: 'center', field: row => this.count_fixs(row), format: val => `${val}`, sortable: true },
         { name: 'input', align: 'left', label: 'Input', field: 'input', sortable: false, style: 'min-width: 250px' },
         { name: 'Cell Line', align: 'left', label: 'Cell Line', field: row => row.fields['Cell Line'].value, sortable: false },
