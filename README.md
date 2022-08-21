@@ -22,7 +22,7 @@ Welcome to the Genomic Metadata Integration tool! with this web-tool is possible
   ```console
   docker run --rm -it -v "/$(pwd)/gemi/frontend/:/usr/src/app/" -p 51111:8080 2603931630/gemi:frontend npm install
   ```
-- Download the pretrained model at this link <a href="https://drive.google.com/file/d/1-TZmS_LVmoO9a_mPgdr8aRJgPf6B0Kjp/view?usp=sharing" target="_blank">drive</a>
+- Download the pretrained model at this link <a href="https://drive.google.com/file/d/1ZhGYUWkQgO71yRmmCTaT5a2rG_xZrBED/view?usp=sharing" target="_blank">drive</a>
 - Copy the downloaded file in the background/Models/ folder
   
 ## Usage
